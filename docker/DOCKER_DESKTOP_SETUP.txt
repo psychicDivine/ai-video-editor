@@ -1,0 +1,225 @@
+================================================================================
+AI VIDEO EDITOR - DOCKER DESKTOP SETUP
+================================================================================
+
+PREREQUISITES
+================================================================================
+- Docker Desktop installed and running
+- Internet connection (to pull images first time)
+
+
+STEP 1: VERIFY DOCKER IS RUNNING
+================================================================================
+Command:
+  docker --version
+  docker ps
+
+Expected Output:
+  Docker version 28.x.x...
+  CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+  (empty list is fine)
+
+
+STEP 2: PULL IMAGES (First Time Only)
+================================================================================
+Command:
+  docker pull postgres:15-alpine
+  docker pull redis:7-alpine
+
+Expected Output:
+  Downloaded newer image for postgres:15-alpine
+  Downloaded newer image for redis:7-alpine
+
+
+STEP 3: START CONTAINERS
+================================================================================
+Command:
+  cd c:\Office\editor\docker
+  docker-compose -f docker-compose.yml up -d
+
+Expected Output:
+  Creating ai_video_editor_postgres ... done
+  Creating ai_video_editor_redis ... done
+
+
+STEP 4: VERIFY CONTAINERS RUNNING
+================================================================================
+Command:
+  docker ps
+
+Expected Output:
+  CONTAINER ID   IMAGE              COMMAND                  CREATED        STATUS
+  xxxxx          postgres:15-alpine "docker-entrypoint..."   2 minutes ago  Up 2 minutes
+  xxxxx          redis:7-alpine     "redis-server..."        2 minutes ago  Up 2 minutes
+
+
+STEP 5: TEST POSTGRESQL
+================================================================================
+Command:
+  docker exec ai_video_editor_postgres psql -U editor -d ai_video_editor -c "SELECT version();"
+
+Expected Output:
+  PostgreSQL version information
+
+
+STEP 6: TEST REDIS
+================================================================================
+Command:
+  docker exec ai_video_editor_redis redis-cli ping
+
+Expected Output:
+  PONG
+
+
+STEP 7: UPDATE BACKEND .ENV
+================================================================================
+Create file: c:\Office\editor\backend\.env
+
+Add these lines:
+  DATABASE_URL=postgresql://editor:editor_pass@localhost:5432/ai_video_editor
+  REDIS_URL=redis://localhost:6379/0
+  SECRET_KEY=your-secret-key-here
+  LOG_LEVEL=INFO
+  UPLOAD_DIR=./uploads
+  MAX_FILE_SIZE=5368709120
+
+
+STEP 8: START BACKEND (Terminal 1)
+================================================================================
+Command:
+  cd c:\Office\editor\backend
+  .\venv\Scripts\activate
+  uvicorn app.main:app --reload
+
+Expected Output:
+  INFO:     Uvicorn running on http://0.0.0.0:8000
+
+
+STEP 9: START CELERY WORKER (Terminal 2)
+================================================================================
+Command:
+  cd c:\Office\editor\backend
+  .\venv\Scripts\activate
+  celery -A app.celery_app worker --loglevel=info
+
+Expected Output:
+  celery@HOSTNAME ready to accept tasks
+
+
+STEP 10: START FRONTEND (Terminal 3)
+================================================================================
+Command:
+  cd c:\Office\editor\frontend
+  npm run dev
+
+Expected Output:
+  VITE v5.x.x ready in XXX ms
+  Local: http://localhost:3000
+
+
+STEP 11: TEST SYSTEM
+================================================================================
+1. Open: http://localhost:3000
+2. Upload 2-3 video files
+3. Upload music file (3+ minutes)
+4. Select 30-second segment
+5. Choose style
+6. Click "Create Video"
+7. Watch progress
+8. Download video
+
+
+================================================================================
+CONNECTION DETAILS
+================================================================================
+
+PostgreSQL:
+  Host:     localhost
+  Port:     5432
+  Database: ai_video_editor
+  User:     editor
+  Password: editor_pass
+
+Redis:
+  Host:     localhost
+  Port:     6379
+
+Backend:
+  URL:      http://localhost:8000
+  Docs:     http://localhost:8000/docs
+
+Frontend:
+  URL:      http://localhost:3000
+
+
+================================================================================
+USEFUL COMMANDS
+================================================================================
+
+View logs:
+  docker logs ai_video_editor_postgres
+  docker logs ai_video_editor_redis
+
+Stop containers:
+  docker-compose -f docker-compose.yml down
+
+Remove containers and data:
+  docker-compose -f docker-compose.yml down -v
+
+Restart containers:
+  docker-compose -f docker-compose.yml restart
+
+Connect to PostgreSQL:
+  docker exec -it ai_video_editor_postgres psql -U editor -d ai_video_editor
+
+Connect to Redis:
+  docker exec -it ai_video_editor_redis redis-cli
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+Docker won't start:
+  - Make sure Docker Desktop is running
+  - Check System Tray for Docker icon
+
+Images won't pull:
+  - Check internet connection
+  - Try: docker pull postgres:15-alpine
+  - Try: docker pull redis:7-alpine
+
+Port already in use:
+  - Check what's using port 5432: netstat -ano | findstr :5432
+  - Check what's using port 6379: netstat -ano | findstr :6379
+  - Kill process: taskkill /PID <PID> /F
+
+Backend won't connect to database:
+  - Verify .env has correct DATABASE_URL
+  - Check containers are running: docker ps
+  - Check logs: docker logs ai_video_editor_postgres
+
+Celery won't connect:
+  - Verify .env has correct REDIS_URL
+  - Check Redis is running: docker logs ai_video_editor_redis
+  - Restart Celery worker
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+Services running:
+  1. PostgreSQL (port 5432) - in Docker
+  2. Redis (port 6379) - in Docker
+  3. Backend (port 8000) - local
+  4. Celery Worker - local
+  5. Frontend (port 3000) - local
+
+Ready to:
+  - Upload videos
+  - Select music segments
+  - Process with AI
+  - Download results
+
+================================================================================

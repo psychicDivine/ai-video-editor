@@ -1,0 +1,111 @@
+.PHONY: help setup install dev dev-backend dev-frontend test lint format clean podman-up podman-down status
+
+help:
+	@echo AI Video Editor - Windows Development Commands
+	@echo ===============================================
+	@echo.
+	@echo Setup Commands:
+	@echo   make setup              - Complete project setup
+	@echo   make install            - Install all dependencies
+	@echo.
+	@echo Development Commands:
+	@echo   make dev                - Start all services with Podman
+	@echo   make dev-backend        - Start backend only
+	@echo   make dev-frontend       - Start frontend only
+	@echo.
+	@echo Podman Commands:
+	@echo   make podman-up          - Start Podman containers
+	@echo   make podman-down        - Stop Podman containers
+	@echo.
+	@echo Quality Commands:
+	@echo   make test               - Run all tests
+	@echo   make lint               - Lint code
+	@echo   make format             - Format code
+	@echo.
+	@echo Cleanup Commands:
+	@echo   make clean              - Remove cache files
+	@echo   make status             - Show project status
+
+setup: install
+	@echo.
+	@echo ✅ Setup complete!
+	@echo Next: make dev
+
+install:
+	@echo 📦 Installing backend dependencies...
+	cd backend && python -m venv venv
+	cd backend && .\venv\Scripts\pip install --upgrade pip
+	cd backend && .\venv\Scripts\pip install uv
+	cd backend && .\venv\Scripts\uv pip install -e ".[dev]"
+	@echo ✅ Backend dependencies installed
+	@echo.
+	@echo 📦 Installing frontend dependencies...
+	cd frontend && npm install
+	@echo ✅ Frontend dependencies installed
+
+dev: podman-up
+	@echo.
+	@echo ✅ All services started with Podman!
+	@echo Frontend: http://localhost:3000
+	@echo Backend: http://localhost:8000
+	@echo API Docs: http://localhost:8000/docs
+
+dev-backend:
+	@echo 🚀 Starting backend...
+	cd backend && .\venv\Scripts\uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+
+dev-frontend:
+	@echo 🚀 Starting frontend...
+	cd frontend && npm run dev
+
+podman-up:
+	@echo 🐳 Starting Podman containers...
+	podman-compose -f docker-compose.yml up -d
+	@echo ✅ Containers started
+
+podman-down:
+	@echo 🛑 Stopping Podman containers...
+	podman-compose -f docker-compose.yml down
+	@echo ✅ Containers stopped
+
+podman-logs:
+	@echo 📋 Podman logs...
+	podman-compose -f docker-compose.yml logs -f
+
+podman-ps:
+	@echo 📊 Podman containers status...
+	podman-compose -f docker-compose.yml ps
+
+test:
+	@echo 🧪 Running tests...
+	cd backend && .\venv\Scripts\pytest tests/ -v --cov=app
+
+lint:
+	@echo 🔍 Linting code...
+	cd backend && .\venv\Scripts\ruff check app/
+	cd frontend && npm run lint
+
+format:
+	@echo ✨ Formatting code...
+	cd backend && .\venv\Scripts\black app/
+	cd frontend && npm run format
+
+clean:
+	@echo 🧹 Removing cache files...
+	cd backend && rmdir /s /q __pycache__ 2>nul || true
+	cd backend && rmdir /s /q .pytest_cache 2>nul || true
+	cd frontend && rmdir /s /q node_modules\.cache 2>nul || true
+	@echo ✅ Cleanup complete
+
+status:
+	@echo 📊 Project Status
+	@echo =================
+	@echo.
+	@echo Backend:
+	@if exist "backend\venv" (echo   ✅ Virtual environment exists) else (echo   ❌ Virtual environment missing)
+	@echo.
+	@echo Frontend:
+	@if exist "frontend\node_modules" (echo   ✅ Dependencies installed) else (echo   ❌ Dependencies not installed)
+	@echo.
+	@echo Podman:
+	podman-compose -f docker-compose.yml ps

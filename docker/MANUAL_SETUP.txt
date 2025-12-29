@@ -1,0 +1,202 @@
+================================================================================
+AI VIDEO EDITOR - MANUAL DATABASE SETUP (NO EMOJIS)
+================================================================================
+
+STEP 1: START PODMAN MACHINE
+================================================================================
+Command:
+  podman machine start
+
+Expected Output:
+  Machine already exists. Starting machine...
+  (or similar startup message)
+
+Wait for it to complete.
+
+
+STEP 2: START POSTGRESQL & REDIS CONTAINERS
+================================================================================
+Command:
+  cd c:\Office\editor\docker
+  podman-compose -f docker-compose.yml up -d
+
+Expected Output:
+  Creating ai_video_editor_postgres ... done
+  Creating ai_video_editor_redis ... done
+
+
+STEP 3: VERIFY CONTAINERS ARE RUNNING
+================================================================================
+Command:
+  podman-compose -f docker-compose.yml ps
+
+Expected Output:
+  CONTAINER ID  IMAGE              COMMAND           CREATED        STATUS
+  xxxxx         postgres:15-alpine postgres          2 minutes ago  Up 2 minutes
+  xxxxx         redis:7-alpine     redis-server      2 minutes ago  Up 2 minutes
+
+
+STEP 4: TEST POSTGRESQL CONNECTION
+================================================================================
+Command:
+  psql -h localhost -U editor -d ai_video_editor -c "SELECT version();"
+
+Password: editor_pass
+
+Expected Output:
+  PostgreSQL version information
+
+
+STEP 5: TEST REDIS CONNECTION
+================================================================================
+Command:
+  redis-cli -h localhost ping
+
+Expected Output:
+  PONG
+
+
+STEP 6: UPDATE BACKEND CONFIGURATION
+================================================================================
+Create or edit: c:\Office\editor\backend\.env
+
+Add these lines:
+  DATABASE_URL=postgresql://editor:editor_pass@localhost:5432/ai_video_editor
+  REDIS_URL=redis://localhost:6379/0
+  SECRET_KEY=your-secret-key-here
+
+
+STEP 7: START BACKEND SERVER
+================================================================================
+Command:
+  cd c:\Office\editor\backend
+  .\venv\Scripts\activate
+  uvicorn app.main:app --reload
+
+Expected Output:
+  INFO:     Uvicorn running on http://0.0.0.0:8000
+  INFO:     Started server process
+
+
+STEP 8: START CELERY WORKER (NEW TERMINAL)
+================================================================================
+Command:
+  cd c:\Office\editor\backend
+  .\venv\Scripts\activate
+  celery -A app.celery_app worker --loglevel=info
+
+Expected Output:
+  celery@HOSTNAME ready to accept tasks
+
+
+STEP 9: START FRONTEND (NEW TERMINAL)
+================================================================================
+Command:
+  cd c:\Office\editor\frontend
+  npm run dev
+
+Expected Output:
+  VITE v5.x.x ready in XXX ms
+  Local: http://localhost:3000
+
+
+STEP 10: TEST COMPLETE SYSTEM
+================================================================================
+1. Open browser: http://localhost:3000
+2. Upload 2-3 video files
+3. Upload a music file (3+ minutes)
+4. Select a 30-second segment using the timeline
+5. Choose a style preset
+6. Click "Create Video"
+7. Watch progress tracker
+8. Download finished video
+
+
+================================================================================
+CONNECTION DETAILS
+================================================================================
+
+PostgreSQL:
+  Host:     localhost
+  Port:     5432
+  Database: ai_video_editor
+  User:     editor
+  Password: editor_pass
+
+Redis:
+  Host:     localhost
+  Port:     6379
+
+Backend API:
+  URL:      http://localhost:8000
+  Docs:     http://localhost:8000/docs
+
+Frontend:
+  URL:      http://localhost:3000
+
+
+================================================================================
+TROUBLESHOOTING
+================================================================================
+
+If PostgreSQL won't start:
+  podman logs ai_video_editor_postgres
+
+If Redis won't start:
+  podman logs ai_video_editor_redis
+
+If containers won't start:
+  podman-compose -f docker-compose.yml down -v
+  podman-compose -f docker-compose.yml up -d
+
+If port 5432 is in use:
+  netstat -ano | findstr :5432
+  taskkill /PID <PID> /F
+
+If port 6379 is in use:
+  netstat -ano | findstr :6379
+  taskkill /PID <PID> /F
+
+
+================================================================================
+STOP SERVICES
+================================================================================
+
+Command:
+  cd c:\Office\editor\docker
+  podman-compose -f docker-compose.yml down
+
+To remove all data:
+  podman-compose -f docker-compose.yml down -v
+
+
+================================================================================
+REQUIRED TOOLS
+================================================================================
+
+- Podman (https://podman.io/)
+- PostgreSQL client (psql) - optional for testing
+- Redis CLI (redis-cli) - optional for testing
+- Python 3.11+
+- Node.js 18+
+- npm
+
+
+================================================================================
+SUMMARY
+================================================================================
+
+All services running:
+  1. PostgreSQL (port 5432)
+  2. Redis (port 6379)
+  3. Backend (port 8000)
+  4. Celery Worker
+  5. Frontend (port 3000)
+
+System ready for:
+  - Video uploads
+  - Music selection
+  - AI processing
+  - Video download
+
+================================================================================

@@ -1,0 +1,116 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ai-video-editor-postgres
+    environment:
+      POSTGRES_DB: ai_video_editor
+      POSTGRES_USER: editor
+      POSTGRES_PASSWORD: editor_pass
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U editor"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-editor-network
+
+  redis:
+    image: redis:7-alpine
+    container_name: ai-video-editor-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - ai-video-editor-network
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-video-editor-backend
+    command: uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://editor:editor_pass@postgres:5432/ai_video_editor
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      UPLOAD_DIR: /app/uploads
+      MAX_FILE_SIZE: 104857600
+      ALLOWED_VIDEO_FORMATS: mp4,mov,avi
+      ALLOWED_AUDIO_FORMATS: mp3,wav,m4a
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - ai-video-editor-network
+
+  celery:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ai-video-editor-celery
+    command: celery -A app.workers.celery_app worker --loglevel=info
+    environment:
+      DATABASE_URL: postgresql://editor:editor_pass@postgres:5432/ai_video_editor
+      REDIS_URL: redis://redis:6379/0
+      SECRET_KEY: dev-secret-key-change-in-production
+      UPLOAD_DIR: /app/uploads
+      CELERY_BROKER_URL: redis://redis:6379/0
+      CELERY_RESULT_BACKEND: redis://redis:6379/1
+      LOG_LEVEL: INFO
+    volumes:
+      - ./backend:/app
+      - uploads:/app/uploads
+    depends_on:
+      - postgres
+      - redis
+      - backend
+    networks:
+      - ai-video-editor-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ai-video-editor-frontend
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      VITE_API_URL: http://localhost:8000
+    depends_on:
+      - backend
+    networks:
+      - ai-video-editor-network
+
+volumes:
+  postgres_data:
+  redis_data:
+  uploads:
+
+networks:
+  ai-video-editor-network:
+    driver: bridge
