@@ -21,3 +21,39 @@ body {
 #root {
   height: 100%;
 }
+
+/* Theme variables (basic light/dark toggling) */
+:root {
+  --bg: #0f1724;
+  --panel: #0b1220;
+  --muted: #94a3b8;
+  --accent: #60a5fa;
+  --success: #10b981;
+  --danger: #ef4444;
+  --glass: rgba(255,255,255,0.04);
+}
+
+[data-theme='light'] {
+  --bg: #f8fafc;
+  --panel: #ffffff;
+  --muted: #475569;
+  --accent: #4f46e5;
+  --success: #059669;
+  --danger: #dc2626;
+  --glass: rgba(2,6,23,0.04);
+}
+
+body {
+  background-color: var(--bg);
+}
+
+/* Progress bar stripe effect */
+.progress-stripes {
+  background-image: linear-gradient(45deg, rgba(255,255,255,0.06) 25%, transparent 25%, transparent 50%, rgba(255,255,255,0.06) 50%, rgba(255,255,255,0.06) 75%, transparent 75%, transparent);
+  background-size: 24px 24px;
+}
+
+@media (max-width: 640px) {
+  /* Mobile: ensure comfortable spacing */
+  .mobile-stack { padding: 1rem; }
+}

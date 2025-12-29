@@ -150,11 +150,20 @@ class VideoProcessor:
             # Mark job as complete
             mark_job_complete(job_id, f"/api/download/{job_id}")
 
+
             # Cleanup intermediate files
             self._cleanup_intermediate_files(output_dir)
             import shutil
             if segments_dir.exists():
                 shutil.rmtree(segments_dir)
+
+            # Delete all uploads except output.mp4
+            for f in output_dir.iterdir():
+                if f.is_file() and f.name != "output.mp4":
+                    try:
+                        f.unlink()
+                    except Exception as e:
+                        logger.warning(f"Failed to delete {f}: {e}")
 
             logger.info(f"Video processing completed for job {job_id}")
             return True

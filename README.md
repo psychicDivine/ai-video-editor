@@ -77,6 +77,8 @@ npm run dev
 6. The **AI Director** will analyze your footage, finding the best moments that fit the music.
 7. Download your fully edited video!
 
+> **⚠️ Note:** This app does **not** keep upload history or user accounts. All uploaded files are deleted after processing, and your output video is deleted from the server after 1 hour. Please download your video as soon as it is ready.
+
 ## 📂 Project Structure
 
 ```

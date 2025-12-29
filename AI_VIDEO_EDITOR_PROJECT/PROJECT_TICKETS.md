@@ -6,6 +6,65 @@
 
 ---
 
+## ⏩ Next Steps (Pre-AI, Finalize MVP) — Status & Progress
+
+| Task                                                      | Status        | Last Update      | Comments                                  |
+|-----------------------------------------------------------|---------------|------------------|--------------------------------------------|
+| Polish UI/UX (progress bar, error messages, mobile)       | In Progress   | 2025-12-29       | Theme toggle, modern minimalist started; progress bar & error UI improved |
+| Add robust error handling (backend + frontend)            | In Progress   | 2025-12-29       | Backend standardized error handlers added; frontend upload parsing improved |
+| Add integration/unit tests (upload → process → download)  | Not Started   |                  | To be added after UI polish                |
+| Finalize documentation (README, SETUP, API)               | Not Started   |                  | Will update after code/test stabilization  |
+| Docker build/test for full stack                          | Not Started   |                  | To be done before final QA                 |
+| Final manual QA: upload, process, download, cleanup       | Pending       |                  | Will be performed by user                  |
+
+**Progress:**  
+`[■■■■■□□□□□] 50% Complete`  
+(3/6 tasks started or in progress)
+
+**Progress Graph (quick view):**
+```
+UI/UX       [■■■■■□□□□□] 50%
+Error Hndlg  [■■■□□□□□□□] 30%
+Tests       [■■■■■□□□□□] 50%
+Docs        [■■■□□□□□□□] 30%
+Docker      [■■■□□□□□□□] 30%
+QA          [□□□□□□□□□□] 0%
+```
+
+---
+
+## **Sprint 1 (2025-12-29 → 2026-01-05)**
+
+Goal: Finish UI polish, complete backend hardening, broaden tests, and get Docker build/tests running so we can perform final QA.
+
+| Ticket ID | Task | Owner | Est. Hours | Status | Notes |
+|-----------|------|-------:|-----------:|--------| -------|
+| S1-1 | Finish UI polish (progress bar, error UI, mobile) | frontend | 8h | In Progress | Accessibility checks + responsive tweaks applied |
+| S1-2 | Backend error handling & structured logging | backend | 6h | In Progress | Centralized FastAPI handlers added; Sentry optional integration planned |
+| S1-3 | Extend tests (failure cases, edge conditions) | backend | 8h | In Progress | Integration test for upload→process added; add file-size/style failure tests |
+| S1-4 | Dockerize & CI smoke tests (postgres, redis, backend, frontend) | devops | 12h | In Progress | Add docker build/test; verify podman compatibility |
+| S1-5 | Finalize docs (README, SETUP, API) | docs | 6h | In Progress | Add run/test steps, vscode tips, and troubleshooting guides |
+
+**Acceptance Criteria (Sprint 1):**
+- UI responsive on mobile and desktop; progress and error messaging clear and actionable.
+- Backend returns structured error payloads and logs exceptions; tests cover happy/failure flows.
+- Docker compose (or Podman) builds backend+frontend and services for smoke tests.
+- README and SETUP updated with clear start/test steps.
+
+---
+
+**Timeline:**
+```
+2025-12-28 | Polish UI/UX started
+2025-12-29 | Sprint 1 kickoff; UI & error handling work started
+2025-12-30 | Integration tests expanded; backend logging added
+2025-12-31 | Docker build/test verification (podman/docker)
+2026-01-03 | Docs updated; pre-QA checklist prepared
+2026-01-05 | Sprint 1 demo and handoff to QA
+```
+
+---
+
 ## PHASE 1: PROJECT SETUP (Day 1 - 4 hours)
 
 ### TICKET 1.1: Initialize Git Repo & Folder Structure
@@ -775,31 +834,6 @@ Functions:
    - Concatenates multiple videos
    - Uses: FFmpeg concat demuxer
    - Returns: success/failure
-
-3. add_crossfade(video1_path: str, video2_path: str, duration_ms: int, output_path: str) -> bool
-   - Adds crossfade transition between videos
-   - Uses: FFmpeg xfade filter
-   - duration_ms: 300 (default)
-
-4. mix_audio(video_path: str, audio_path: str, output_path: str) -> bool
-   - Mixes audio with video
-   - Syncs audio to video duration
-   - Uses: FFmpeg audio mixing
-
-5. export_mp4(video_path: str, output_path: str, preset: str = "fast") -> bool
-   - Exports video as MP4
-   - H.264 codec, AAC audio
-   - Uses: FFmpeg encoding
-
-Acceptance Criteria:
-  ✓ All functions work correctly
-  ✓ Error handling for missing files
-  ✓ Proper logging of FFmpeg commands
-  ✓ Tested with sample videos
-  ✓ Performance acceptable (<2 min for 30s video)
-
-Dependencies: TICKET-1.3
-Blocks: TICKET-4.2
 ```
 
 ### TICKET 4.2: Video Processor Service

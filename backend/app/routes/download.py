@@ -10,7 +10,7 @@ router = APIRouter(prefix="/api", tags=["download"])
 
 @router.get("/download/{job_id}")
 async def download_video(job_id: str):
-    """Download processed video"""
+    """Download processed video (only if output exists)"""
     try:
         # Validate job_id format
         uuid.UUID(job_id)
@@ -21,7 +21,7 @@ async def download_video(job_id: str):
     video_path = Path(settings.upload_dir) / job_id / "output.mp4"
 
     if not video_path.exists():
-        raise HTTPException(status_code=404, detail="Video not found")
+        raise HTTPException(status_code=404, detail="Output video not found or expired. Please re-upload and process your files.")
 
     return FileResponse(
         path=video_path,

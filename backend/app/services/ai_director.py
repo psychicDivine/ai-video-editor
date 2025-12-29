@@ -1,4 +1,8 @@
-import google.generativeai as genai
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
 import os
 import json
 import logging

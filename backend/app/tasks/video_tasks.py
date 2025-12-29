@@ -1,13 +1,28 @@
 from pathlib import Path
 import logging
 
-from app.celery_app import celery_app
 from app.config import settings
 from app.services.video_processor import VideoProcessor
 from app.services.beat_detector import BeatDetector
 from app.routes.jobs import update_job_progress, mark_job_complete, mark_job_failed
 
 logger = logging.getLogger(__name__)
+
+# Try to import the configured Celery app; if unavailable (tests), provide a dummy decorator
+try:
+    from app.celery_app import celery_app
+except Exception:
+    class _DummyCelery:
+        def task(self, *args, **kwargs):
+            def _decorator(f):
+                return f
+
+            return _decorator
+
+        def __getattr__(self, _):
+            return lambda *a, **k: None
+
+    celery_app = _DummyCelery()
 
 
 @celery_app.task(bind=True)
@@ -90,3 +105,27 @@ def cleanup_old_jobs(days: int = 7):
 
     except Exception as e:
         logger.error(f"Error cleaning up old jobs: {e}")
+
+
+@celery_app.task
+def cleanup_old_outputs(hours: int = 1):
+    """Delete output.mp4 files older than N hours (default: 1 hour)"""
+    try:
+        from datetime import datetime, timedelta
+
+        upload_dir = Path(settings.upload_dir)
+        cutoff_time = datetime.now() - timedelta(hours=hours)
+
+        for job_dir in upload_dir.iterdir():
+            if job_dir.is_dir():
+                output_file = job_dir / "output.mp4"
+                if output_file.exists():
+                    mtime = datetime.fromtimestamp(output_file.stat().st_mtime)
+                    if mtime < cutoff_time:
+                        try:
+                            output_file.unlink()
+                            logger.info(f"Deleted old output: {output_file}")
+                        except Exception as e:
+                            logger.warning(f"Failed to delete {output_file}: {e}")
+    except Exception as e:
+        logger.error(f"Error cleaning up old outputs: {e}")
