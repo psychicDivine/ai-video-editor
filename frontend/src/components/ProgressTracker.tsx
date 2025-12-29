@@ -22,7 +22,7 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
   useEffect(() => {
     const pollStatus = async () => {
       try {
-        const response = await axios.get(`http://localhost:8000/api/jobs/${jobId}`)
+        const response = await axios.get(`/api/jobs/${jobId}`)
         setJobStatus(response.data)
         setLoading(false)
 

@@ -76,10 +76,32 @@ class FFmpegHandler:
         return {"duration": 0, "sample_rate": 44100}
 
     def trim_video(
-        self, input_path: str, output_path: str, start_time: float, duration: float
+        self, 
+        input_path: str, 
+        output_path: str, 
+        start_time: float, 
+        duration: float,
+        width: int = 1080,
+        height: int = 1920,
+        fps: int = 30
     ) -> bool:
-        """Trim video segment"""
+        """Trim video segment and standardize resolution/fps"""
         try:
+            # We use re-encoding (libx264) instead of stream copy (-c copy)
+            # because stream copy on non-keyframes causes black frames/freezing.
+            # We also enforce resolution and frame rate here to ensure all segments
+            # are identical before concatenation.
+            
+            # Filter complex for scaling and fps
+            # scale: resize to fit within box
+            # pad: fill remaining space with black to match exact aspect ratio
+            # fps: force constant frame rate
+            vf_filter = (
+                f"scale={width}:{height}:force_original_aspect_ratio=decrease,"
+                f"pad={width}:{height}:(ow-iw)/2:(oh-ih)/2,"
+                f"fps={fps}"
+            )
+
             cmd = [
                 self.ffmpeg_cmd,
                 "-ss",
@@ -88,21 +110,23 @@ class FFmpegHandler:
                 input_path,
                 "-t",
                 str(duration),
-                "-c",
-                "copy",  # Fast stream copy
+                "-vf",
+                vf_filter,
+                "-c:v",
+                "libx264",
+                "-preset",
+                "faster", # Use faster preset for intermediate segments
+                "-c:a",
+                "aac",
+                "-ar", "44100", # Standardize audio sample rate
+                "-ac", "2",     # Standardize audio channels
                 "-y",
                 output_path,
             ]
             
-            # If copy fails (e.g. keyframe issues), fallback to re-encoding
-            try:
-                subprocess.run(cmd, capture_output=True, text=True, check=True)
-            except subprocess.CalledProcessError:
-                logger.warning("Stream copy failed, falling back to re-encoding")
-                cmd[7] = "libx264" # Replace "copy" with codec
-                subprocess.run(cmd, capture_output=True, text=True, check=True)
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
 
-            logger.info(f"Video trimmed: {start_time}s + {duration}s")
+            logger.info(f"Video trimmed and standardized: {start_time}s + {duration}s")
             return True
         except Exception as e:
             logger.error(f"Error trimming video: {e}")
@@ -173,23 +197,23 @@ class FFmpegHandler:
     def mix_audio(
         self, video_path: str, audio_path: str, output_path: str
     ) -> bool:
-        """Mix audio with video"""
+        """Mix audio with video, always re-encode to ensure audio is present"""
         try:
             cmd = [
                 self.ffmpeg_cmd,
-                "-i",
-                video_path,
-                "-i",
-                audio_path,
-                "-c:v",
-                "libx264",
-                "-c:a",
-                "aac",
+                "-i", video_path,
+                "-i", audio_path,
+                "-map", "0:v:0",
+                "-map", "1:a:0",
+                "-c:v", "libx264",
+                "-preset", "medium",
+                "-crf", "23",
+                "-c:a", "aac",
+                "-b:a", "192k",
                 "-shortest",
-                "-y",
-                output_path,
+                "-movflags", "+faststart",
+                "-y", output_path
             ]
-
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
             logger.info(f"Audio mixed to {output_path}")
             return True
@@ -224,7 +248,7 @@ class FFmpegHandler:
     def apply_fade_transition(
         self, input_path: str, output_path: str, fade_duration: float = 0.5
     ) -> bool:
-        """Apply fade transition effect"""
+        """Apply fade transition effect with final quality encoding"""
         try:
             # Get video duration first
             video_info = self.get_video_info(input_path)
@@ -232,7 +256,6 @@ class FFmpegHandler:
             
             if duration == 0:
                 logger.warning("Could not get video duration, skipping fade transition")
-                # Just copy the file if we can't get duration
                 import shutil
                 shutil.copy(input_path, output_path)
                 return True
@@ -246,6 +269,12 @@ class FFmpegHandler:
                 input_path,
                 "-vf",
                 f"fade=t=in:st=0:d={fade_duration},fade=t=out:st={fade_out_start}:d={fade_duration}",
+                "-c:v",
+                "libx264",
+                "-preset",
+                "medium",
+                "-crf",
+                "23",
                 "-c:a",
                 "copy",
                 "-y",
@@ -253,7 +282,7 @@ class FFmpegHandler:
             ]
 
             result = subprocess.run(cmd, capture_output=True, text=True, check=True)
-            logger.info(f"Fade transition applied")
+            logger.info(f"Fade transition applied with final quality settings")
             return True
         except Exception as e:
             logger.error(f"Error applying fade transition: {e}")

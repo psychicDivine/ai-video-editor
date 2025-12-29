@@ -54,7 +54,7 @@ export default function UploadForm({ onJobCreated, style }: UploadFormProps) {
       formData.append('music_start_time', musicStartTime.toString())
       formData.append('music_end_time', musicEndTime.toString())
 
-      const response = await axios.post('http://localhost:8000/api/upload', formData, {
+      const response = await axios.post('/api/upload', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },

@@ -101,7 +101,9 @@ class VideoProcessor:
                     cut["source_path"], 
                     str(segment_path), 
                     cut["start"], 
-                    cut["duration"]
+                    cut["duration"],
+                    width=1080,
+                    height=1920
                 ):
                     clips_to_concat.append(str(segment_path))
             
@@ -115,43 +117,33 @@ class VideoProcessor:
             if not self.ffmpeg.concatenate_videos(clips_to_concat, str(concat_path)):
                 raise Exception("Failed to concatenate videos")
 
-            update_job_progress(job_id, 60, "Resizing video")
-
-            # Step 5: Resize to standard dimensions (9:16 for mobile)
-            resized_path = output_dir / "resized.mp4"
-            if not self.ffmpeg.resize_video(str(concat_path), str(resized_path), 1080, 1920):
-                raise Exception("Failed to resize video")
+            # Step 5: Resize skipped (handled in trim_video)
+            # We now have a standardized 1080x1920 video at concat_path
 
             update_job_progress(job_id, 70, "Applying transitions")
 
             # Step 6: Apply fade transitions
             transition_path = output_dir / "transition.mp4"
             if not self.ffmpeg.apply_fade_transition(
-                str(resized_path), str(transition_path), fade_duration=0.5
+                str(concat_path), str(transition_path), fade_duration=0.5
             ):
                 raise Exception("Failed to apply transitions")
 
             update_job_progress(job_id, 80, "Mixing audio")
 
-            # Step 7: Mix audio with video
+            # Step 7: Mix audio with video (Final Step)
             # Trim audio to user selection
             trimmed_audio = output_dir / "trimmed_audio.mp3"
             if not self.ffmpeg.trim_audio(music_path, str(trimmed_audio), music_start_time, target_duration):
                  logger.warning("Failed to trim audio, using original")
                  trimmed_audio = music_path
 
-            mixed_path = output_dir / "mixed.mp4"
+            # Output directly to output.mp4
+            output_path = output_dir / "output.mp4"
             if not self.ffmpeg.mix_audio(
-                str(transition_path), str(trimmed_audio), str(mixed_path)
+                str(transition_path), str(trimmed_audio), str(output_path)
             ):
                 raise Exception("Failed to mix audio")
-
-            update_job_progress(job_id, 90, "Rendering final video")
-
-            # Step 8: Render final video
-            output_path = output_dir / "output.mp4"
-            if not self.ffmpeg.render_final_video(str(mixed_path), str(output_path)):
-                raise Exception("Failed to render final video")
 
             update_job_progress(job_id, 100, "Complete")
 
@@ -180,6 +172,7 @@ class VideoProcessor:
             "transition.mp4",
             "mixed.mp4",
             "concat.txt",
+            "trimmed_audio.mp3"
         ]
         for filename in intermediate_files:
             file_path = output_dir / filename

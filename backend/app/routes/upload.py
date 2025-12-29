@@ -10,7 +10,9 @@ from app.models.job import Job, JobStatus, StylePreset
 from app.models.video import Video, Audio
 from app.schemas.job import JobResponse
 from app.tasks.video_tasks import process_video_task
-from app.routes.jobs import jobs_db
+from app.routes.jobs import redis_client, get_job_key
+import json
+from datetime import datetime
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +79,7 @@ async def upload_files(
         with open(music_path, "wb") as f:
             f.write(music_content)
 
-        # Create job record
+        # Create job record and persist to Redis so UI can poll status
         job = {
             "id": job_id,
             "status": "PENDING",
@@ -88,8 +90,13 @@ async def upload_files(
             "music_path": str(music_path),
             "music_start_time": music_start_time,
             "music_end_time": music_end_time,
+            "created_at": datetime.utcnow().isoformat(),
+            "updated_at": datetime.utcnow().isoformat(),
         }
-        jobs_db[job_id] = job
+
+        # Persist job in Redis (single source of truth for job status)
+        redis_client.set(get_job_key(job_id), json.dumps(job))
+        redis_client.expire(get_job_key(job_id), 86400)
 
         # Trigger Celery task for async processing
         try:
