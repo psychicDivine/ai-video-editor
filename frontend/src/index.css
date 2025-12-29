@@ -57,3 +57,56 @@ body {
   /* Mobile: ensure comfortable spacing */
   .mobile-stack { padding: 1rem; }
 }
+
+/* Theme-aware overrides for common Tailwind utility classes so light mode remains readable */
+[data-theme='light'] .text-white { color: var(--text, #0f1724) !important; }
+[data-theme='light'] .text-slate-300 { color: var(--muted) !important; }
+[data-theme='light'] .text-slate-400 { color: var(--muted) !important; }
+[data-theme='light'] .text-slate-200 { color: rgba(15,23,36,0.75) !important; }
+[data-theme='light'] .bg-slate-700 { background: var(--panel) !important; }
+[data-theme='light'] .bg-slate-600 { background: var(--glass) !important; }
+[data-theme='light'] .bg-slate-800 { background: var(--panel) !important; }
+[data-theme='light'] .border-slate-600 { border-color: rgba(2,6,23,0.06) !important; }
+[data-theme='light'] .bg-blue-600, [data-theme='light'] .file\:bg-blue-600 { background-color: var(--accent) !important; }
+[data-theme='light'] .bg-green-600, [data-theme='light'] .file\:bg-green-600 { background-color: var(--success) !important; }
+[data-theme='light'] .bg-yellow-900 { background-color: #f59e0b !important; }
+[data-theme='light'] .bg-red-900 { background-color: var(--danger) !important; color: white !important; }
+
+/* Buttons and inputs */
+[data-theme='light'] button { background-color: var(--panel) !important; color: var(--text, #0f1724) !important; border-color: rgba(2,6,23,0.06) !important; }
+[data-theme='light'] input[type="file"] { color: var(--muted) !important; }
+
+/* Card surfaces */
+[data-theme='light'] .rounded-lg { background: var(--panel) !important; }
+
+/* Improve contrast for form labels, file inputs and card boundaries in light mode */
+[data-theme='light'] label,
+[data-theme='light'] .block {
+  color: rgba(15,23,36,0.78) !important;
+}
+
+[data-theme='light'] .border { border-color: rgba(15,23,36,0.14) !important; }
+[data-theme='light'] .border-slate-600 { border-color: rgba(15,23,36,0.16) !important; }
+[data-theme='light'] .rounded-lg { box-shadow: 0 6px 16px rgba(2,6,23,0.06) !important; border: 1px solid rgba(15,23,36,0.08) !important; }
+
+/* Stronger global borders for better contrast */
+ .border { border-color: rgba(255,255,255,0.06); }
+
+/* File input / button styling (standard and WebKit) */
+[data-theme='light'] input[type="file"] { color: var(--muted) !important; }
+[data-theme='light'] input[type="file"]::-webkit-file-upload-button {
+  background: var(--accent) !important;
+  color: white !important;
+  border: none !important;
+  padding: .4rem .8rem !important;
+  border-radius: .375rem !important;
+}
+[data-theme='light'] ::-webkit-file-upload-button { background: var(--accent) !important; color: white !important; }
+
+/* Make small helper text and placeholders readable */
+[data-theme='light'] ::placeholder { color: rgba(15,23,36,0.5) !important; }
+
+[data-theme='light'] .info-box, [data-theme='light'] .bg-slate-600 { background: rgba(2,6,23,0.03) !important; color: rgba(15,23,36,0.8) !important; }
+
+[data-theme='light'] .file\:text-sm { color: rgba(15,23,36,0.7) !important; }
+

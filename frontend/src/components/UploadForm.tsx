@@ -62,7 +62,14 @@ export default function UploadForm({ onJobCreated, style }: UploadFormProps) {
 
       onJobCreated(response.data.job_id)
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Upload failed')
+      // Better error extraction for axios errors
+      if (axios.isAxiosError(err)) {
+        const data = err.response?.data as any
+        const msg = data?.message || data?.detail || data?.error || err.message || 'Upload failed'
+        setError(String(msg))
+      } else {
+        setError(err instanceof Error ? err.message : 'Upload failed')
+      }
     } finally {
       setLoading(false)
     }

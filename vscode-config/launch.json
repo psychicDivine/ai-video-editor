@@ -25,10 +25,12 @@
       "name": "Python: Celery Worker",
       "type": "python",
       "request": "launch",
-      "module": "celery",
+      "module": "uv",
       "args": [
+        "run",
+        "celery",
         "-A",
-        "app.workers.celery_app",
+        "app.celery_app",
         "worker",
         "--loglevel=info"
       ],
