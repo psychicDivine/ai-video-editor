@@ -1,0 +1,7 @@
+﻿feat: Add frei0r + transition services, segment planner, MLT export, frontend selectors, and podcast upload
+
+- TICKET-4.1: add frei0r backend (backend/app/services/frei0r_service.py, backend/app/routes/frei0r_routes.py) — detect/apply frei0r filters via FFmpeg
+- TICKET-4.2: add transitions API + service and registry (backend/app/services/transition_service.py, backend/app/routes/transition_routes.py, backend/app/services/transitions.py), MLT exporter (backend/app/exporters/mlt_exporter.py) and test harness (backend/scripts/run_transition_test.py)
+- TICKET-5.2 / TICKET-BEAT-1 / TICKET-5.1: add segment_planner.py for beatsynced segment planning (beat diagnostics referenced; missing run_diagnostics.py)
+- TICKET-2.3: add frontend frei0r/transition selectors (frontend/src/components/Frei0rSelector.tsx, Frei0rSelector.css)
+- TICKET-POD-1 / TICKET-3.3: add PodcastUpload frontend component for audio upload and error handling (frontend/src/components/PodcastUpload.tsx)

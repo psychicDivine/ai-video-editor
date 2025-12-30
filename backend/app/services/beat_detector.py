@@ -22,18 +22,19 @@ class BeatDetector:
         try:
             # Load audio
             y, sr = librosa.load(audio_path, sr=self.sr)
-            
-            # Estimate tempo and beat frames
-            onset_env = librosa.onset.onset_strength(y=y, sr=sr)
-            tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr)
-            
+
+            # Compute onset envelope and tempo/beat frames
+            hop_length = 512
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+            tempo, beats = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr, hop_length=hop_length)
+
             # Convert beat frames to time
-            beat_times = librosa.frames_to_time(beats, sr=sr)
-            
+            beat_times = librosa.frames_to_time(beats, sr=sr, hop_length=hop_length)
+
             # Ensure tempo is a float
             if isinstance(tempo, np.ndarray):
                 tempo = float(tempo)
-            
+
             logger.info(f"Detected {len(beat_times)} beats at {tempo:.1f} BPM")
             return beat_times, tempo
         except Exception as e:
@@ -107,6 +108,25 @@ class BeatDetector:
             logger.error(f"Error analyzing energy: {e}")
             return 0.5
 
+    def _compute_beat_strengths(self, y: np.ndarray, sr: int, beats_frames: np.ndarray, hop_length: int = 512) -> np.ndarray:
+        """Compute a strength score for each beat by sampling the onset envelope around the beat frame."""
+        try:
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+            strengths = []
+            half_window = 2  # frames on either side
+            for bf in beats_frames:
+                start = max(0, int(bf - half_window))
+                end = min(len(onset_env), int(bf + half_window) + 1)
+                strengths.append(float(np.max(onset_env[start:end]) if end > start else 0.0))
+            strengths = np.array(strengths)
+            # normalize
+            if strengths.max() > 0:
+                strengths = strengths / float(strengths.max())
+            return strengths
+        except Exception as e:
+            logger.error(f"Error computing beat strengths: {e}")
+            return np.zeros(len(beats_frames))
+
     def get_best_segment(
         self, audio_path: str, segment_duration: float = 30.0
     ) -> Tuple[float, float]:
@@ -152,18 +172,45 @@ class BeatDetector:
             List of cut times in seconds
         """
         try:
-            beat_times, _ = self.detect_beats(audio_path)
-            
-            if len(beat_times) < num_cuts:
-                logger.warning(f"Not enough beats for {num_cuts} cuts")
-                return beat_times.tolist()
-            
-            # Get evenly spaced beats
-            indices = np.linspace(0, len(beat_times) - 1, num_cuts + 1, dtype=int)
-            cut_points = beat_times[indices[1:-1]].tolist()
-            
-            logger.info(f"Cut points: {[f'{t:.1f}s' for t in cut_points]}")
-            return cut_points
+            # Load audio and compute beat frames + strengths
+            y, sr = librosa.load(audio_path, sr=self.sr)
+            hop_length = 512
+            onset_env = librosa.onset.onset_strength(y=y, sr=sr, hop_length=hop_length)
+            tempo, beats_frames = librosa.beat.beat_track(onset_envelope=onset_env, sr=sr, hop_length=hop_length)
+            beat_times = librosa.frames_to_time(beats_frames, sr=sr, hop_length=hop_length)
+
+            if len(beat_times) == 0:
+                logger.warning("No beats detected for cut points")
+                return []
+
+            # Compute beat strengths
+            beat_strengths = self._compute_beat_strengths(y, sr, beats_frames, hop_length=hop_length)
+
+            # Candidate beats: prefer strongest beats and enforce minimum spacing
+            min_spacing_sec = 2.5
+            # Build list of (time, strength)
+            candidates = list(zip(beat_times.tolist(), beat_strengths.tolist()))
+
+            # Sort candidates by strength descending
+            candidates_sorted = sorted(candidates, key=lambda x: x[1], reverse=True)
+
+            selected = []
+            for t, s in candidates_sorted:
+                # enforce min spacing
+                if any(abs(t - sel) < min_spacing_sec for sel in selected):
+                    continue
+                selected.append(t)
+                if len(selected) >= num_cuts:
+                    break
+
+            # If not enough selected, fall back to evenly spaced beats
+            if len(selected) < num_cuts:
+                indices = np.linspace(0, len(beat_times) - 1, num_cuts + 1, dtype=int)
+                selected = beat_times[indices[1:-1]].tolist()
+
+            selected_sorted = sorted(selected)
+            logger.info(f"Cut points: {[f'{t:.1f}s' for t in selected_sorted]}")
+            return [float(t) for t in selected_sorted]
         except Exception as e:
             logger.error(f"Error getting cut points: {e}")
             return []

@@ -1,0 +1,7 @@
+.frei0r-selector { padding: 16px; background: var(--color-surface); border-radius: 8px; border: 1px solid var(--color-border); }
+.preset-list { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; }
+.preset-button { padding: 8px 10px; border: 1px solid var(--color-border); background: var(--color-surface); border-radius: 6px; cursor: pointer; }
+.preset-button.selected { background: var(--color-primary); color: var(--color-btn-primary-text); }
+.file-input { margin-bottom: 12px; }
+.result { margin-top: 12px; color: var(--color-text-secondary); }
+.error { color: var(--color-danger); }

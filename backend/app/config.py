@@ -29,6 +29,9 @@ class Settings(BaseSettings):
     celery_result_backend: str = "redis://localhost:6379/0"
     log_level: str = "INFO"
     gemini_api_key: str = ""
+    # Optional observability
+    sentry_dsn: Optional[str] = None
+    debug: bool = False
 
     class Config:
         env_file = ".env"

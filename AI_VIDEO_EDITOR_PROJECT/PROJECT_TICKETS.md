@@ -6,6 +6,16 @@
 
 ---
 
+## **Daily Progress Summary — 2025-12-30**
+
+- **Today (wrap-up):** Implemented transition plumbing (FFmpeg xfade wiring + audio acrossfade), added TransitionService and frei0r support, MLT exporter, frontend selectors, and a test harness. Ran the test harness; pipeline produced `output.mp4` but FFmpeg xfade step initially failed due to a malformed `filter_complex` (video/audio sections not properly separated).
+- **Current blocker:** FFmpeg `xfade` run failed with "Trailing garbage after a filter" parsing error caused by missing separator between video and audio filter graphs. I patched `FFmpegHandler.concatenate_with_transitions` to insert the semicolon separator, clamp transition duration, and log the full `filter_complex`. Next step is to re-run the harness and confirm xfade succeeds across real segments.
+- **What to resume next:** From code: re-run `python test_video_flow.py` (capture to `test_run2.log`), inspect the tail of `test_run2.log` for ffmpeg stderr. If xfade still fails, enforce per-input `-vf scale,fps,pix_fmt` when building filter graph or create a minimal reproducer in `backend/tmp_test` to isolate ffmpeg args.
+- **Artifacts / quick references:** test outputs are in `backend/test_output/test_job_real_assets` (see `output.mp4`), working example clips in `backend/tmp_test` (contains `blue.mp4`, `red.mp4`, `test_transition.mp4`, `test_project.mlt`). The main handler is `backend/app/services/ffmpeg_handler.py` and pipeline orchestrator is `backend/app/services/video_processor.py`.
+- **Status:** Partial success — end-to-end flow produces `output.mp4`; video-level xfade currently falls back to simple concat but MLT export and audio mixing complete. Manual inspection of `backend/tmp_test/test_transition.mp4` shows transitions work in the simpler reproducer.
+- **Owner / notes:** Continue from logs and re-run; expected quick fix and verification (estimated 30–90 minutes). I'll keep `PROJECT_TICKETS.md` top section updated daily with the latest blocker/progress.
+
+
 ## ⏩ Next Steps (Pre-AI, Finalize MVP) — Status & Progress
 
 | Task                                                      | Status        | Last Update      | Comments                                  |
@@ -1200,6 +1210,114 @@ Acceptance Criteria:
 
 Dependencies: TICKET-5.3
 Blocks: TICKET-6.1
+
+---
+
+## **New: Top‑5 AI Feature Tickets (Week 1 Sprint)**
+
+ID: TICKET-BEAT-1
+Title: Beat‑Synced Cutting (Prototype)
+Priority: CRITICAL
+Time Estimate: 1.5 days
+Status: IN PROGRESS
+
+Description:
+Implement a robust beat‑synced cutting prototype with onset peak‑picking, beat salience scoring, bar/downbeat preference, and minimum spacing enforcement to produce reliable cut candidates for Reels.
+
+Subtasks:
+  - [ ] Add onset peak‑picking and beat_strength scoring in `backend/app/services/beat_detector.py`
+  - [ ] Implement bar/downbeat selection and `min_spacing_sec` enforcement in `backend/app/services/segment_planner.py`
+  - [ ] Export `cut_points` from `backend/app/tasks/video_tasks.py` and store diagnostics under `test_output/beat_diagnostics/`
+
+Acceptance Criteria:
+  ✓ Returns N cut candidates for a 30s target with min spacing enforced
+  ✓ Diagnostic run on sample tracks shows median cut→strong‑beat offset <200ms (goal)
+
+Files: `backend/app/services/beat_detector.py`, `backend/app/services/segment_planner.py`, `backend/app/tasks/video_tasks.py`
+
+---
+
+ID: TICKET-HOOK-1
+Title: Auto‑Generated Hooks & Intros (POC)
+Priority: HIGH
+Time Estimate: 1 day
+Status: TODO
+
+Description:
+Detect top 3–5s hooks using audio energy and scene salience; produce short copy suggestions via existing LLM prompt template.
+
+Subtasks:
+  - [ ] Build energy + scene scorer `backend/app/services/hook_detector.py`
+  - [ ] Integrate copy suggestion via LLM prompt
+  - [ ] Surface top hook candidates in frontend editor
+
+Acceptance Criteria:
+  ✓ Returns top 3 hook segments with scores and suggested copy
+
+Files: `backend/app/services/hook_detector.py`, frontend editor components
+
+---
+
+ID: TICKET-POD-1
+Title: Podcast→Reels Pipeline (Scaffold)
+Priority: HIGH
+Time Estimate: 2 days (scaffold + POC)
+Status: TODO
+
+Description:
+Scaffold backend pipeline for podcast uploads → transcription → diarization → highlight extraction → reel candidate generation (reuse beat/hook modules).
+
+Subtasks:
+  - [ ] Add `POST /api/podcast` route at `backend/app/routes/podcast.py`
+  - [ ] Add `backend/app/services/podcast_service.py` to persist audio and enqueue tasks
+  - [ ] Add tasks in `backend/app/tasks/podcast_tasks.py` to call ASR/diarization (POC with stub or cloud)
+
+Acceptance Criteria:
+  ✓ Frontend can upload audio and receive `job_id`; job produces transcripts and reel candidates under `uploads/{job_id}`
+
+Files: `backend/app/routes/podcast.py`, `backend/app/services/podcast_service.py`, `backend/app/tasks/podcast_tasks.py`
+
+---
+
+ID: TICKET-STYLE-1
+Title: Smart Style Transfer (LUTs)
+Priority: MEDIUM
+Time Estimate: 8 hours
+Status: TODO
+
+Description:
+Implement one‑click LUT-based style transfer (4 styles) using FFmpeg filter chains; add preview + apply endpoints.
+
+Subtasks:
+  - [ ] Add LUT assets and FFmpeg filter generator in `backend/app/services/style_transfer.py`
+  - [ ] Add API `/api/apply-style` and frontend preview controls
+
+Acceptance Criteria:
+  ✓ Applying style completes within target latency and produces consistent stylistic looks
+
+Files: `backend/app/services/style_transfer.py`, frontend style selector
+
+---
+
+ID: TICKET-IG-1
+Title: Instagram Direct Posting + Scheduling (MVP)
+Priority: MEDIUM
+Time Estimate: 1 day
+Status: TODO
+
+Description:
+Integrate Instagram Graph API OAuth and scheduling worker to post generated reels (premium feature).
+
+Subtasks:
+  - [ ] Implement OAuth connect endpoint and token storage at `backend/app/routes/instagram.py`
+  - [ ] Implement schedule queue and posting worker `backend/app/tasks/instagram_tasks.py`
+
+Acceptance Criteria:
+  ✓ Authenticated user can schedule or post a reel; status visible via job status endpoint
+
+Files: `backend/app/routes/instagram.py`, `backend/app/tasks/instagram_tasks.py`
+
+---
 ```
 
 ---

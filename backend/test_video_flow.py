@@ -95,7 +95,9 @@ def test_flow():
             style="cinematic",
             output_dir=output_dir,
             music_start_time=46.0,  # 0:46
-            music_end_time=76.0     # 1:16 (30 seconds duration)
+            music_end_time=76.0,    # 1:16 (30 seconds duration)
+            transition_name="dissolve",
+            export_mlt=True,
         )
         
         if success:

@@ -4,7 +4,9 @@ from typing import List, Optional
 import logging
 
 from app.services.ffmpeg_handler import FFmpegHandler
+from app.services.transitions import get_xfade_name
 from app.services.ai_director import AIDirector
+from app.exporters.mlt_exporter import MLTExporter
 from app.routes.jobs import update_job_progress, mark_job_complete, mark_job_failed
 
 logger = logging.getLogger(__name__)
@@ -27,6 +29,8 @@ class VideoProcessor:
         music_start_time: float = 0.0,
         music_end_time: float = 30.0,
         cut_points: Optional[List[float]] = None,
+        transition_name: Optional[str] = None,
+        export_mlt: bool = False,
     ) -> bool:
         """Process video: detect beats, cut segments, concatenate, transitions, mix audio"""
         try:
@@ -68,24 +72,49 @@ class VideoProcessor:
 
             # Fallback to Random Smart Cutting if no AI cuts
             if not cuts_metadata:
-                logger.info("Generating random smart cuts")
-                import random
-                num_clips = int(target_duration / 4)  # ~4 seconds per clip
-                
-                for i in range(num_clips):
-                    source_video = video_paths[i % len(video_paths)] # Cycle through inputs
-                    video_info = self.ffmpeg.get_video_info(source_video)
-                    source_duration = video_info.get("duration", 10.0)
+                # If cut_points were provided by upstream (beat detector), use them to create segments
+                if cut_points:
+                    logger.info("Using provided cut_points to build segments")
+                    # cut_points are absolute times in the music; build segment boundaries
+                    music_start = music_start_time
+                    music_end = music_start_time + target_duration
+                    boundaries = [music_start] + sorted([float(c) for c in cut_points]) + [music_end]
+                    # Build segments from consecutive boundaries
+                    for idx in range(len(boundaries) - 1):
+                        seg_start_music = boundaries[idx]
+                        seg_end_music = boundaries[idx + 1]
+                        seg_duration = seg_end_music - seg_start_music
+                        # Assign source video sequentially to avoid repeating the same timestamp
+                        source_video = video_paths[idx % len(video_paths)]
+                        video_info = self.ffmpeg.get_video_info(source_video)
+                        source_duration = video_info.get("duration", 10.0)
+                        # Center the cut in the source video to reduce repeated identical frames
+                        max_start = max(0, source_duration - seg_duration)
+                        start_time = max_start / 2.0
+                        cuts_metadata.append({
+                            "source_path": source_video,
+                            "start": float(start_time),
+                            "duration": float(seg_duration)
+                        })
+                else:
+                    logger.info("Generating random smart cuts")
+                    import random
+                    num_clips = int(target_duration / 4)  # ~4 seconds per clip
                     
-                    clip_duration = target_duration / num_clips
-                    max_start = max(0, source_duration - clip_duration)
-                    start_time = random.uniform(0, max_start)
-                    
-                    cuts_metadata.append({
-                        "source_path": source_video,
-                        "start": start_time,
-                        "duration": clip_duration
-                    })
+                    for i in range(num_clips):
+                        source_video = video_paths[i % len(video_paths)] # Cycle through inputs
+                        video_info = self.ffmpeg.get_video_info(source_video)
+                        source_duration = video_info.get("duration", 10.0)
+                        
+                        clip_duration = target_duration / num_clips
+                        max_start = max(0, source_duration - clip_duration)
+                        start_time = random.uniform(0, max_start)
+                        
+                        cuts_metadata.append({
+                            "source_path": source_video,
+                            "start": start_time,
+                            "duration": clip_duration
+                        })
 
             # Create segments directory
             segments_dir = output_dir / "segments"
@@ -112,22 +141,41 @@ class VideoProcessor:
 
             update_job_progress(job_id, 50, "Concatenating videos")
 
-            # Step 4: Concatenate segments
+            # Step 4: Concatenate segments (with transitions when requested)
             concat_path = output_dir / "concat.mp4"
-            if not self.ffmpeg.concatenate_videos(clips_to_concat, str(concat_path)):
-                raise Exception("Failed to concatenate videos")
+            transition_duration = 1.2
+            xfade_name = get_xfade_name(transition_name or "crossfade")
+
+            if not self.ffmpeg.concatenate_with_transitions(
+                clips_to_concat, str(concat_path), transition_name=xfade_name, transition_duration=transition_duration
+            ):
+                # Fallback to simple concat if transitions fail
+                logger.warning("Transition concat failed, falling back to simple concat")
+                if not self.ffmpeg.concatenate_videos(clips_to_concat, str(concat_path)):
+                    raise Exception("Failed to concatenate videos")
+
+            # Optionally export an MLT project for manual editing
+            if export_mlt:
+                try:
+                    exporter = MLTExporter()
+                    clips = []
+                    # Build clip descriptors from cuts_metadata and produced segments
+                    for i, cut in enumerate(cuts_metadata):
+                        seg_path = (segments_dir / f"segment_{i}.mp4").as_posix()
+                        clips.append({"path": seg_path, "transition": {"type": xfade_name, "duration": transition_duration}})
+                    exporter.export(clips, str(output_dir / "project.mlt"), title=f"job_{job_id}")
+                    logger.info("MLT export written")
+                except Exception:
+                    logger.exception("Failed to write MLT export")
 
             # Step 5: Resize skipped (handled in trim_video)
             # We now have a standardized 1080x1920 video at concat_path
 
-            update_job_progress(job_id, 70, "Applying transitions")
+            update_job_progress(job_id, 70, "Transitions applied")
 
-            # Step 6: Apply fade transitions
-            transition_path = output_dir / "transition.mp4"
-            if not self.ffmpeg.apply_fade_transition(
-                str(concat_path), str(transition_path), fade_duration=0.5
-            ):
-                raise Exception("Failed to apply transitions")
+            # The `concat_path` already contains video-level transitions (video-only).
+            # We'll mix the trimmed audio in the next step.
+            transition_path = concat_path
 
             update_job_progress(job_id, 80, "Mixing audio")
 

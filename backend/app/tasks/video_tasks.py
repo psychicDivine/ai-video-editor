@@ -58,6 +58,15 @@ def process_video_task(
         num_cuts = max(2, len(video_paths) - 1)
         cut_points = beat_detector.get_cut_points(music_path, num_cuts)
 
+        # Persist cut points for diagnostics/frontend use
+        try:
+            import json
+
+            (output_dir / "cut_points.json").write_text(json.dumps({"cut_points": cut_points}))
+            update_job_progress(job_id, 18, "Cut points computed and saved")
+        except Exception:
+            logger.exception("Failed to write cut_points.json")
+
         update_job_progress(job_id, 20, "Processing videos")
 
         # Process video with beat-synced cuts
