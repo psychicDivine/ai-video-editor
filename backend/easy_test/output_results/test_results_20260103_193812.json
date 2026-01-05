@@ -1,0 +1,412 @@
+{
+  "timestamp": "2026-01-03T19:36:09.945418",
+  "input_videos": [
+    {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy_realtime.mp4",
+          "analysis_time": "4.93s",
+          "reframing_time": "7.55s",
+          "total_time": "12.47s",
+          "video_duration": "14.93s",
+          "speed_ratio": "0.84x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy_realtime.mp4",
+          "analysis_time": "6.80s",
+          "reframing_time": "7.77s",
+          "total_time": "14.57s",
+          "video_duration": "14.93s",
+          "speed_ratio": "0.98x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts_realtime.mp4",
+          "analysis_time": "8.27s",
+          "reframing_time": "8.60s",
+          "total_time": "16.88s",
+          "video_duration": "14.93s",
+          "speed_ratio": "1.13x",
+          "realtime_capable": false
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts_realtime.mp4",
+          "analysis_time": "6.85s",
+          "reframing_time": "8.04s",
+          "total_time": "14.89s",
+          "video_duration": "14.93s",
+          "speed_ratio": "1.00x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\Beautiful Road  Way to Anini, Arunachal Pradesh.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 14.93687,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.206459045410156
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Beautiful Road  Way to Anini, Arunachal Pradesh_realtime.mp4",
+          "analysis_time": "5.41s",
+          "reframing_time": "7.60s",
+          "total_time": "13.01s",
+          "video_duration": "14.94s",
+          "speed_ratio": "0.87x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\Beautiful Road  Way to Anini, Arunachal Pradesh.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 14.93687,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.206459045410156
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Beautiful Road  Way to Anini, Arunachal Pradesh_realtime.mp4",
+          "analysis_time": "4.48s",
+          "reframing_time": "7.27s",
+          "total_time": "11.74s",
+          "video_duration": "14.94s",
+          "speed_ratio": "0.79x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\Hills Arunachal Pradesh India #nature #video #naturelovers.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 11.046907,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.9050655364990234
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Hills Arunachal Pradesh India #nature #video #naturelovers_realtime.mp4",
+          "analysis_time": "3.39s",
+          "reframing_time": "4.48s",
+          "total_time": "7.87s",
+          "video_duration": "11.05s",
+          "speed_ratio": "0.71x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\Hills Arunachal Pradesh India #nature #video #naturelovers.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 11.046907,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.9050655364990234
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Hills Arunachal Pradesh India #nature #video #naturelovers_realtime.mp4",
+          "analysis_time": "3.45s",
+          "reframing_time": "4.34s",
+          "total_time": "7.79s",
+          "video_duration": "11.05s",
+          "speed_ratio": "0.70x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me.mp4",
+      "analysis": {
+        "width": 360,
+        "height": 640,
+        "duration": 15.033333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.1914663314819336
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me_realtime.mp4",
+          "analysis_time": "3.36s",
+          "reframing_time": "7.07s",
+          "total_time": "10.43s",
+          "video_duration": "15.03s",
+          "speed_ratio": "0.69x",
+          "realtime_capable": true
+        }
+      }
+    },
+    {
+      "path": "easy_test\\input_videos\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me.mp4",
+      "analysis": {
+        "width": 360,
+        "height": 640,
+        "duration": 15.033333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.1914663314819336
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me_realtime.mp4",
+          "analysis_time": "3.51s",
+          "reframing_time": "6.91s",
+          "total_time": "10.42s",
+          "video_duration": "15.03s",
+          "speed_ratio": "0.69x",
+          "realtime_capable": true
+        }
+      }
+    }
+  ],
+  "test_results": {
+    "ANINI - Arunachal Pradesh #bindassjohn #shorts copy": {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts copy_realtime.mp4",
+          "analysis_time": "6.80s",
+          "reframing_time": "7.77s",
+          "total_time": "14.57s",
+          "video_duration": "14.93s",
+          "speed_ratio": "0.98x",
+          "realtime_capable": true
+        }
+      }
+    },
+    "ANINI - Arunachal Pradesh #bindassjohn #shorts": {
+      "path": "easy_test\\input_videos\\ANINI - Arunachal Pradesh #bindassjohn #shorts.mp4",
+      "analysis": {
+        "width": 1080,
+        "height": 1920,
+        "duration": 14.933333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.692541122436523
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\ANINI - Arunachal Pradesh #bindassjohn #shorts_realtime.mp4",
+          "analysis_time": "6.85s",
+          "reframing_time": "8.04s",
+          "total_time": "14.89s",
+          "video_duration": "14.93s",
+          "speed_ratio": "1.00x",
+          "realtime_capable": true
+        }
+      }
+    },
+    "Beautiful Road  Way to Anini, Arunachal Pradesh": {
+      "path": "easy_test\\input_videos\\Beautiful Road  Way to Anini, Arunachal Pradesh.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 14.93687,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 4.206459045410156
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Beautiful Road  Way to Anini, Arunachal Pradesh_realtime.mp4",
+          "analysis_time": "4.48s",
+          "reframing_time": "7.27s",
+          "total_time": "11.74s",
+          "video_duration": "14.94s",
+          "speed_ratio": "0.79x",
+          "realtime_capable": true
+        }
+      }
+    },
+    "Hills Arunachal Pradesh India #nature #video #naturelovers": {
+      "path": "easy_test\\input_videos\\Hills Arunachal Pradesh India #nature #video #naturelovers.mp4",
+      "analysis": {
+        "width": 720,
+        "height": 1280,
+        "duration": 11.046907,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.9050655364990234
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\Hills Arunachal Pradesh India #nature #video #naturelovers_realtime.mp4",
+          "analysis_time": "3.45s",
+          "reframing_time": "4.34s",
+          "total_time": "7.79s",
+          "video_duration": "11.05s",
+          "speed_ratio": "0.70x",
+          "realtime_capable": true
+        }
+      }
+    },
+    "menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me": {
+      "path": "easy_test\\input_videos\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me.mp4",
+      "analysis": {
+        "width": 360,
+        "height": 640,
+        "duration": 15.033333,
+        "aspect_ratio": 0.5625,
+        "format_type": "Portrait",
+        "suitable_tests": [
+          "subject_tracking",
+          "realtime_reframing"
+        ],
+        "file_size_mb": 1.1914663314819336
+      },
+      "tests": {
+        "realtime_reframing": {
+          "success": true,
+          "output_file": "easy_test\\output_results\\menchukha-the-fairytale-village-of-arunachal-pradesh-isa-khan-720-ytshorts.savetube.me_realtime.mp4",
+          "analysis_time": "3.51s",
+          "reframing_time": "6.91s",
+          "total_time": "10.42s",
+          "video_duration": "15.03s",
+          "speed_ratio": "0.69x",
+          "realtime_capable": true
+        }
+      }
+    }
+  }
+}

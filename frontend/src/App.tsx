@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import './App.css'
 import UploadForm from './components/UploadForm'
-import StyleSelector from './components/StyleSelector'
 import ProgressTracker from './components/ProgressTracker'
 import ThemeToggle from './components/ThemeToggle'
 import PodcastUpload from './components/PodcastUpload'
@@ -30,41 +29,41 @@ function App() {
           </div>
         </header>
 
-        <main className="max-w-7xl mx-auto py-10 px-4 sm:px-6 lg:px-8 mobile-stack">
+        <main className="w-full h-[calc(100vh-80px)] overflow-hidden bg-[#0b0f14]">
           {!jobId ? (
-            <div className="space-y-8">
-              <div className="flex gap-4 items-center mb-4">
-                <button
-                  onClick={() => setMode('reel')}
-                  className={`px-4 py-2 rounded-lg font-semibold ${mode === 'reel' ? 'bg-blue-600 text-white' : 'bg-transparent text-[var(--muted)] border border-transparent hover:bg-blue-500/10'}`}
-                >
-                  Reel
-                </button>
-                <button
-                  onClick={() => setMode('podcast')}
-                  className={`px-4 py-2 rounded-lg font-semibold ${mode === 'podcast' ? 'bg-green-600 text-white' : 'bg-transparent text-[var(--muted)] border border-transparent hover:bg-green-500/10'}`}
-                >
-                  Podcast
-                </button>
+            <div className="h-full flex flex-col">
+              {/* Mode Switcher - Floating or Top Bar */}
+              <div className="px-6 py-4 border-b border-white/5 flex justify-between items-center bg-[#0b0f14]/50 backdrop-blur-sm z-10">
+                <div className="flex gap-2 bg-black/40 p-1 rounded-lg border border-white/5">
+                  <button
+                    type="button"
+                    onClick={() => setMode('reel')}
+                    className={`px-6 py-2 rounded-md text-sm font-mono tracking-wider transition-all ${mode === 'reel' ? 'bg-neon-blue/20 text-neon-blue shadow-[0_0_15px_rgba(0,240,255,0.1)]' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    REEL
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMode('podcast')}
+                    className={`px-6 py-2 rounded-md text-sm font-mono tracking-wider transition-all ${mode === 'podcast' ? 'bg-neon-green/20 text-neon-green shadow-[0_0_15px_rgba(57,255,122,0.1)]' : 'text-slate-400 hover:text-white'}`}
+                  >
+                    PODCAST
+                  </button>
+                </div>
+                <div className="text-xs font-mono text-slate-500">
+                  STUDIO MODE: ACTIVE
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <div className="flex-1 overflow-hidden relative">
                 {mode === 'reel' ? (
-                  <>
-                    {/* Upload Section */}
-                    <div className="rounded-lg shadow-lg p-6 border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.04)' }}>
-                      <h2 className="text-2xl font-bold text-white mb-6">Upload Media</h2>
-                      <UploadForm onJobCreated={setJobId} style={selectedStyle} />
-                    </div>
-
-                    {/* Style Selection */}
-                    <div className="rounded-lg shadow-lg p-6 border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.04)' }}>
-                      <h2 className="text-2xl font-bold text-white mb-6">Choose Style</h2>
-                      <StyleSelector selectedStyle={selectedStyle} onStyleChange={setSelectedStyle} />
-                    </div>
-                  </>
+                  <UploadForm 
+                    onJobCreated={setJobId} 
+                    style={selectedStyle} 
+                    onStyleChange={setSelectedStyle}
+                  />
                 ) : (
-                  <>
+                  <div className="max-w-4xl mx-auto p-8 grid grid-cols-1 gap-8">
                     <div className="rounded-lg shadow-lg p-6 border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.04)' }}>
                       <h2 className="text-2xl font-bold text-white mb-6">Podcast Upload</h2>
                       <PodcastUpload onJobCreated={setJobId} />
@@ -74,29 +73,32 @@ function App() {
                       <h2 className="text-2xl font-bold text-white mb-6">Podcast Tips</h2>
                       <p className="text-sm text-[var(--muted)]">Upload a single high-quality audio file (mp3/wav). We will extract transcript, fillers and highlights. Use a quiet recording for best results.</p>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="rounded-lg shadow-lg p-6 border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.04)' }}>
-              <h2 className="text-2xl font-bold text-white mb-6">Processing Video</h2>
-              <ProgressTracker jobId={jobId} onComplete={() => setShowComplete(true)} />
+            <div className="max-w-4xl mx-auto py-10 px-4">
+              <div className="rounded-lg shadow-lg p-6 border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.04)' }}>
+                <h2 className="text-2xl font-bold text-white mb-6">Processing Video</h2>
+                <ProgressTracker jobId={jobId} onComplete={() => setShowComplete(true)} />
 
-              {showComplete && (
-                <div className="mt-4 flex gap-2">
-                  <button
-                    onClick={() => {
-                      // User chooses to return to main upload screen
-                      setJobId(null)
-                      setShowComplete(false)
-                    }}
-                    className="px-4 py-2 rounded bg-slate-600 text-white"
-                  >
-                    Back to Uploads
-                  </button>
-                </div>
-              )}
+                {showComplete && (
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        // User chooses to return to main upload screen
+                        setJobId(null)
+                        setShowComplete(false)
+                      }}
+                      className="px-4 py-2 rounded bg-slate-600 text-white"
+                    >
+                      Back to Uploads
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
         </main>

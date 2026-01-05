@@ -30,6 +30,9 @@ async def upload_files(
     style: str = Form(default="cinematic_drama"),
     music_start_time: float = Form(default=0.0),
     music_end_time: float = Form(default=30.0),
+    enable_ai_reframing: bool = Form(default=True),
+    enable_quality_enhancement: bool = Form(default=False),
+    accepted_cuts: str | None = Form(default=None),
 ):
     """Upload videos and music, create a job and trigger processing"""
     try:
@@ -90,6 +93,7 @@ async def upload_files(
             "music_path": str(music_path),
             "music_start_time": music_start_time,
             "music_end_time": music_end_time,
+            "accepted_cuts": json.loads(accepted_cuts) if accepted_cuts else [],
             "created_at": datetime.utcnow().isoformat(),
             "updated_at": datetime.utcnow().isoformat(),
         }
@@ -107,6 +111,8 @@ async def upload_files(
                 style=style,
                 music_start_time=music_start_time,
                 music_end_time=music_end_time,
+                enable_ai_reframing=enable_ai_reframing,
+                enable_quality_enhancement=enable_quality_enhancement,
             )
         except Exception as celery_error:
             logger.error(f"Celery task error: {str(celery_error)}", exc_info=True)

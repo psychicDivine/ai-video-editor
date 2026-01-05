@@ -6,60 +6,76 @@
 
 ---
 
-## **Daily Progress Summary — 2025-12-30**
+## **Daily Progress Summary — 2026-01-03**
 
-- **Today (wrap-up):** Implemented transition plumbing (FFmpeg xfade wiring + audio acrossfade), added TransitionService and frei0r support, MLT exporter, frontend selectors, and a test harness. Ran the test harness; pipeline produced `output.mp4` but FFmpeg xfade step initially failed due to a malformed `filter_complex` (video/audio sections not properly separated).
-- **Current blocker:** FFmpeg `xfade` run failed with "Trailing garbage after a filter" parsing error caused by missing separator between video and audio filter graphs. I patched `FFmpegHandler.concatenate_with_transitions` to insert the semicolon separator, clamp transition duration, and log the full `filter_complex`. Next step is to re-run the harness and confirm xfade succeeds across real segments.
-- **What to resume next:** From code: re-run `python test_video_flow.py` (capture to `test_run2.log`), inspect the tail of `test_run2.log` for ffmpeg stderr. If xfade still fails, enforce per-input `-vf scale,fps,pix_fmt` when building filter graph or create a minimal reproducer in `backend/tmp_test` to isolate ffmpeg args.
-- **Artifacts / quick references:** test outputs are in `backend/test_output/test_job_real_assets` (see `output.mp4`), working example clips in `backend/tmp_test` (contains `blue.mp4`, `red.mp4`, `test_transition.mp4`, `test_project.mlt`). The main handler is `backend/app/services/ffmpeg_handler.py` and pipeline orchestrator is `backend/app/services/video_processor.py`.
-- **Status:** Partial success — end-to-end flow produces `output.mp4`; video-level xfade currently falls back to simple concat but MLT export and audio mixing complete. Manual inspection of `backend/tmp_test/test_transition.mp4` shows transitions work in the simpler reproducer.
-- **Owner / notes:** Continue from logs and re-run; expected quick fix and verification (estimated 30–90 minutes). I'll keep `PROJECT_TICKETS.md` top section updated daily with the latest blocker/progress.
+- **Current Status:** Multiple critical components NOT working as expected:
+  - ❌ **FFmpeg Transitions:** xfade filter fails with "Trailing garbage after a filter" parsing error
+  - ❌ **Style Processing:** Style application pipeline broken/not functioning properly  
+  - ❌ **Gemini AI Integration:** AI Director not working correctly for scene selection
+  - ⚠️ **Overall Pipeline:** Only basic concat working, advanced features failing
+
+- **Current blockers (Priority Order):**
+  1. **FFmpeg xfade bug** - Missing separator between video/audio filter graphs in `concatenate_with_transitions`
+  2. **Style processing failure** - Style application not working in video processor pipeline
+  3. **Gemini AI broken** - ai_director.py integration failing for intelligent cuts
+  4. **End-to-end testing needed** - Full pipeline validation required
+
+- **What to resume next:** 
+  1. Fix FFmpeg filter_complex separator issue in `backend/app/services/ffmpeg_handler.py`
+  2. Debug style processing pipeline in `backend/app/services/video_processor.py`
+  3. Repair Gemini integration in `backend/app/services/ai_director.py`
+  4. Run comprehensive test with `python test_video_flow.py`
+
+- **Artifacts:** test outputs in `backend/test_output/test_job_real_assets`, basic clips in `backend/tmp_test`
+- **Status:** ⚠️ CRITICAL FIXES NEEDED - Core MVP features currently broken
+- **Owner / notes:** Fix existing functionality BEFORE adding new AI features. Estimated 4-6 hours of debugging needed.
 
 
-## ⏩ Next Steps (Pre-AI, Finalize MVP) — Status & Progress
+## ⚠️ CRITICAL FIXES NEEDED (Pre-AI Integration) — Status & Progress
 
-| Task                                                      | Status        | Last Update      | Comments                                  |
-|-----------------------------------------------------------|---------------|------------------|--------------------------------------------|
-| Polish UI/UX (progress bar, error messages, mobile)       | In Progress   | 2025-12-29       | Theme toggle, modern minimalist started; progress bar & error UI improved |
-| Add robust error handling (backend + frontend)            | In Progress   | 2025-12-29       | Backend standardized error handlers added; frontend upload parsing improved |
-| Add integration/unit tests (upload → process → download)  | Not Started   |                  | To be added after UI polish                |
-| Finalize documentation (README, SETUP, API)               | Not Started   |                  | Will update after code/test stabilization  |
-| Docker build/test for full stack                          | Not Started   |                  | To be done before final QA                 |
-| Final manual QA: upload, process, download, cleanup       | Pending       |                  | Will be performed by user                  |
+| Task                                                      | Status        | Priority | ETA      | Comments                                  |
+|-----------------------------------------------------------|---------------|----------|----------|--------------------------------------------|
+| **Fix FFmpeg xfade transition bug**                       | Critical      | P0       | 2-3h     | Filter parsing error blocking all transitions |
+| **Debug style processing pipeline**                       | Broken        | P0       | 1-2h     | Style application not working correctly |
+| **Repair Gemini AI integration (ai_director.py)**         | Not Working   | P1       | 2-3h     | Scene selection AI completely broken |
+| **Test end-to-end video processing pipeline**             | Pending       | P1       | 1h       | Validate all fixes work together |
+| Add robust error handling (backend + frontend)            | In Progress   | P2       | 3-4h     | Backend standardized error handlers added |
+| Polish UI/UX (progress bar, error messages, mobile)       | In Progress   | P3       | 4-6h     | Theme toggle, modern minimalist started |
 
 **Progress:**  
-`[■■■■■□□□□□] 50% Complete`  
-(3/6 tasks started or in progress)
+`[■■□□□□□□□□] 20% Complete - CRITICAL ISSUES BLOCKING MVP`  
+(Major functionality broken, requires immediate attention)
 
-**Progress Graph (quick view):**
+**Current Reality Check:**
 ```
-UI/UX       [■■■■■□□□□□] 50%
-Error Hndlg  [■■■□□□□□□□] 30%
-Tests       [■■■■■□□□□□] 50%
-Docs        [■■■□□□□□□□] 30%
-Docker      [■■■□□□□□□□] 30%
-QA          [□□□□□□□□□□] 0%
+FFmpeg Trans [□□□□□□□□□□] 0% - BROKEN
+Style Process [□□□□□□□□□□] 0% - BROKEN  
+Gemini AI     [□□□□□□□□□□] 0% - BROKEN
+Core Pipeline [■■□□□□□□□□] 20% - PARTIALLY WORKING
+UI/Frontend   [■■■■□□□□□□] 40% - FUNCTIONAL
 ```
 
 ---
 
-## **Sprint 1 (2025-12-29 → 2026-01-05)**
+## **Sprint 1 - CRITICAL BUG FIXES (2026-01-03 → 2026-01-05)**
 
-Goal: Finish UI polish, complete backend hardening, broaden tests, and get Docker build/tests running so we can perform final QA.
+Goal: Fix ALL broken core functionality before any new feature development. Get basic MVP working properly.
 
-| Ticket ID | Task | Owner | Est. Hours | Status | Notes |
-|-----------|------|-------:|-----------:|--------| -------|
-| S1-1 | Finish UI polish (progress bar, error UI, mobile) | frontend | 8h | In Progress | Accessibility checks + responsive tweaks applied |
-| S1-2 | Backend error handling & structured logging | backend | 6h | In Progress | Centralized FastAPI handlers added; Sentry optional integration planned |
-| S1-3 | Extend tests (failure cases, edge conditions) | backend | 8h | In Progress | Integration test for upload→process added; add file-size/style failure tests |
-| S1-4 | Dockerize & CI smoke tests (postgres, redis, backend, frontend) | devops | 12h | In Progress | Add docker build/test; verify podman compatibility |
-| S1-5 | Finalize docs (README, SETUP, API) | docs | 6h | In Progress | Add run/test steps, vscode tips, and troubleshooting guides |
+| Ticket ID | Task | Owner | Est. Hours | Priority | Status | Notes |
+|-----------|------|-------:|-----------:|----------|--------| -------|
+| CRIT-1 | Fix FFmpeg xfade transition bug (filter_complex parsing) | backend | 3h | P0 | Not Started | Blocking ALL transitions |
+| CRIT-2 | Debug & fix style processing pipeline | backend | 2h | P0 | Not Started | Style application completely broken |
+| CRIT-3 | Repair Gemini AI integration (ai_director.py) | backend | 3h | P1 | Not Started | Scene selection AI not working |
+| CRIT-4 | End-to-end pipeline testing & validation | backend | 2h | P1 | Not Started | Ensure all fixes work together |
+| S1-1 | Backend error handling & structured logging | backend | 4h | P2 | In Progress | Add proper error handling for broken features |
+| S1-2 | UI error messaging for failed operations | frontend | 2h | P2 | Not Started | Show users when backend features fail |
 
-**Acceptance Criteria (Sprint 1):**
-- UI responsive on mobile and desktop; progress and error messaging clear and actionable.
-- Backend returns structured error payloads and logs exceptions; tests cover happy/failure flows.
-- Docker compose (or Podman) builds backend+frontend and services for smoke tests.
-- README and SETUP updated with clear start/test steps.
+**Acceptance Criteria (Sprint 1 - FIXED FUNCTIONALITY):**
+- FFmpeg transitions work without filter parsing errors
+- Style processing applies correctly to video output
+- Gemini AI integration successfully analyzes and cuts videos
+- End-to-end upload → process → download completes successfully
+- Proper error handling shows users what's broken vs working
 
 ---
 

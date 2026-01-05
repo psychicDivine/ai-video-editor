@@ -201,6 +201,7 @@ class FFmpegHandler:
         audio track.
         """
         try:
+            logger.info(f"concatenate_with_transitions called with transition_name='{transition_name}', duration={transition_duration}")
             n = len(video_paths)
             if n == 0:
                 logger.error("No video paths provided for concatenation")
@@ -282,10 +283,9 @@ class FFmpegHandler:
             else:
                 filter_complex = "".join(v_filters)
 
-            # Debug: log the full filter_complex and command preview for diagnosis
-            logger.debug(f"FFmpeg filter_complex: {filter_complex}")
-            logger.debug("FFmpeg cmd preview: %s", ' '.join(cmd + ["-filter_complex", filter_complex, *maps, *codec_args, "-y", output_path]))
-
+            # Remove any empty filters or double semicolons
+            filter_complex = filter_complex.replace(";;", ";").strip(";")
+            
             # Build map args
             maps = ["-map", "[vout]"]
             codec_args = ["-c:v", "libx264", "-preset", "medium", "-crf", "23"]
@@ -294,6 +294,51 @@ class FFmpegHandler:
                 maps += ["-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
             else:
                 codec_args += ["-an"]
+
+            # Debug: log the full filter_complex and command preview for diagnosis
+            logger.debug(f"FFmpeg filter_complex: {filter_complex}")
+            logger.debug("FFmpeg cmd preview: %s", ' '.join(cmd + ["-filter_complex", filter_complex, *maps, *codec_args, "-y", output_path]))
+            
+            # Validate filter_complex is not empty
+            if not filter_complex or filter_complex == "":
+                logger.error("Filter complex is empty, cannot proceed with xfade")
+                return False
+            
+            # Additional validation: Check transition_name is not empty
+            if not transition_name or transition_name.strip() == "":
+                logger.error(f"Invalid transition_name: '{transition_name}'. Using default 'fade'")
+                transition_name = "fade"
+                # Rebuild the filter complex with corrected transition name
+                v_filters = []
+                for i in range(n):
+                    v_filters.append(f"[{i}:v]format=yuva420p,setsar=1[v{i}];")
+                
+                cumulative = durations[0]
+                for j in range(1, n):
+                    offset = max(0, cumulative - transition_duration)
+                    if j == 1:
+                        in_label = f"[v0][v1]"
+                    else:
+                        in_label = f"[x{j-1}][v{j}]"
+                    
+                    out_label = f"[x{j}]"
+                    v_filters.append(
+                        f"{in_label}xfade=transition={transition_name}:duration={transition_duration}:offset={offset}{out_label};"
+                    )
+                    cumulative += durations[j]
+                
+                final_label = f"[x{n-1}]"
+                v_filters.append(f"{final_label}format=yuv420p[vout];")
+                
+                # Rebuild filter_complex
+                if include_audio:
+                    filter_complex = "".join(v_filters) + ";" + "".join(a_filters)
+                else:
+                    filter_complex = "".join(v_filters)
+                
+                # Remove any empty filters or double semicolons
+                filter_complex = filter_complex.replace(";;", ";").strip(";")
+                logger.debug(f"Rebuilt FFmpeg filter_complex: {filter_complex}")
 
             cmd += ["-filter_complex", filter_complex, *maps, *codec_args, "-y", output_path]
 

@@ -1,48 +1,39 @@
-import { useState, useRef, useEffect } from 'react'
+import React from 'react'
 
 interface MusicTimelineProps {
   musicFile: File
   onTimeSelect: (startTime: number, endTime: number) => void
+  currentTime: number
+  duration: number
+  isPlaying: boolean
+  onTogglePlay: () => void
+  onSeek: (time: number) => void
+  startTime: number
+  endTime: number
 }
 
-export default function MusicTimeline({ musicFile, onTimeSelect }: MusicTimelineProps) {
-  const audioRef = useRef<HTMLAudioElement>(null)
-  const [duration, setDuration] = useState(0)
-  const [startTime, setStartTime] = useState(0)
-  const [currentTime, setCurrentTime] = useState(0)
+export default function MusicTimeline({ 
+  musicFile: _musicFile, 
+  onTimeSelect, 
+  currentTime, 
+  duration, 
+  isPlaying: _isPlaying, 
+  onTogglePlay: _onTogglePlay, 
+  onSeek,
+  startTime,
+  endTime
+}: MusicTimelineProps) {
   const SEGMENT_DURATION = 30 // Fixed 30 seconds
-
-  useEffect(() => {
-    const audio = audioRef.current
-    if (!audio) return
-
-    const handleLoadedMetadata = () => {
-      setDuration(audio.duration)
-    }
-
-    const handleTimeUpdate = () => {
-      setCurrentTime(audio.currentTime)
-    }
-
-    audio.addEventListener('loadedmetadata', handleLoadedMetadata)
-    audio.addEventListener('timeupdate', handleTimeUpdate)
-
-    return () => {
-      audio.removeEventListener('loadedmetadata', handleLoadedMetadata)
-      audio.removeEventListener('timeupdate', handleTimeUpdate)
-    }
-  }, [])
 
   const handleStartTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newStart = parseFloat(e.target.value)
     // Ensure end time doesn't exceed duration
     const maxStart = Math.max(0, duration - SEGMENT_DURATION)
     const clampedStart = Math.min(newStart, maxStart)
-    setStartTime(clampedStart)
     onTimeSelect(clampedStart, clampedStart + SEGMENT_DURATION)
+    onSeek(clampedStart)
   }
 
-  const endTime = Math.min(startTime + SEGMENT_DURATION, duration)
   const maxStartTime = Math.max(0, duration - SEGMENT_DURATION)
 
   const formatTime = (seconds: number) => {
@@ -52,86 +43,54 @@ export default function MusicTimeline({ musicFile, onTimeSelect }: MusicTimeline
   }
 
   return (
-    <div className="space-y-4">
-      {/* Audio Player */}
-      <div>
-        <audio
-          ref={audioRef}
-          src={URL.createObjectURL(musicFile)}
-          controls
-          className="w-full h-8 bg-slate-800 rounded"
-        />
+    <div className="w-full h-full relative group bg-[#0b0f14] select-none">
+      {/* Background Track (Visual representation of full song) */}
+      <div className="absolute inset-0 flex items-center opacity-20 px-2">
+        <div className="w-full h-1/3 bg-slate-700/50 rounded-full" />
       </div>
 
-      {/* Timeline Info */}
-      <div className="bg-slate-600 bg-opacity-50 p-4 rounded border border-slate-500">
-        <div className="grid grid-cols-3 gap-4 text-center">
-          <div>
-            <p className="text-xs text-slate-400">Start Time</p>
-            <p className="text-lg font-bold text-blue-400">{formatTime(startTime)}</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">Duration</p>
-            <p className="text-lg font-bold text-green-400">{SEGMENT_DURATION}s</p>
-          </div>
-          <div>
-            <p className="text-xs text-slate-400">End Time</p>
-            <p className="text-lg font-bold text-purple-400">{formatTime(endTime)}</p>
-          </div>
+      {/* Progress Bar (Current Playback) */}
+      <div
+        className="absolute top-0 bottom-0 left-0 bg-white/5 transition-all duration-100 pointer-events-none"
+        style={{ width: `${(currentTime / (duration || 1)) * 100}%` }}
+      />
+      
+      {/* Playhead Line */}
+      <div
+        className="absolute top-0 bottom-0 w-px bg-white/30 z-10 pointer-events-none"
+        style={{ left: `${(currentTime / (duration || 1)) * 100}%` }}
+      />
+
+      {/* Selected Region Highlight */}
+      <div
+        className="absolute top-0 bottom-0 bg-neon-green/10 border-x border-neon-green/50 backdrop-blur-[1px] transition-all duration-75 cursor-grab active:cursor-grabbing"
+        style={{
+          left: `${(startTime / (duration || 1)) * 100}%`,
+          width: `${(SEGMENT_DURATION / (duration || 1)) * 100}%`,
+        }}
+      >
+        <div className="absolute top-0 left-0 bg-neon-green text-black text-[9px] font-bold px-1 rounded-br">
+          {formatTime(startTime)}
+        </div>
+        <div className="absolute bottom-0 right-0 bg-neon-green text-black text-[9px] font-bold px-1 rounded-tl">
+          {formatTime(endTime)}
+        </div>
+        
+        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+          <span className="text-[10px] font-mono text-neon-green font-bold tracking-widest bg-black/50 px-2 py-1 rounded">DRAG REGION</span>
         </div>
       </div>
 
-      {/* Timeline Slider */}
-      <div>
-        <label className="block text-sm font-medium text-slate-200 mb-3">
-          📍 Select where to start your 30-second clip
-        </label>
-
-        {/* Visual Timeline */}
-        <div className="relative mb-4">
-          {/* Background bar */}
-          <div className="h-2 bg-slate-600 rounded-full overflow-hidden">
-            {/* Played portion */}
-            <div
-              className="h-full bg-blue-500 transition-all"
-              style={{ width: `${(currentTime / duration) * 100}%` }}
-            />
-          </div>
-
-          {/* Selected segment indicator */}
-          <div
-            className="absolute top-0 h-2 bg-green-500 opacity-50 rounded-full pointer-events-none"
-            style={{
-              left: `${(startTime / duration) * 100}%`,
-              width: `${(SEGMENT_DURATION / duration) * 100}%`,
-            }}
-          />
-        </div>
-
-        {/* Slider Input */}
-        <input
-          type="range"
-          min="0"
-          max={maxStartTime}
-          step="0.1"
-          value={startTime}
-          onChange={handleStartTimeChange}
-          className="w-full h-2 bg-slate-600 rounded-lg appearance-none cursor-pointer"
-        />
-
-        {/* Time Labels */}
-        <div className="flex justify-between text-xs text-slate-400 mt-2">
-          <span>0:00</span>
-          <span>{formatTime(duration)}</span>
-        </div>
-      </div>
-
-      {/* Info Box */}
-      <div className="bg-slate-700 bg-opacity-50 p-3 rounded border border-slate-600">
-        <p className="text-xs text-slate-300">
-          💡 <span className="font-semibold">Tip:</span> Drag the slider to select the best 30-second segment from your music. The green highlight shows your selected segment.
-        </p>
-      </div>
+      {/* Invisible Range Input for Interaction */}
+      <input
+        type="range"
+        min="0"
+        max={maxStartTime}
+        step="0.1"
+        value={startTime}
+        onChange={handleStartTimeChange}
+        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
+      />
     </div>
   )
 }

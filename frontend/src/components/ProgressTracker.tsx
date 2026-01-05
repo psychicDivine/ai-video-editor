@@ -64,7 +64,7 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
       clearInterval(interval)
       if (cancelRef.current) cancelRef.current()
     }
-  }, [jobId, onComplete])
+  }, [jobId, onComplete, retryCount])
 
   if (loading && !jobStatus) {
     return (
@@ -81,6 +81,7 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
         </div>
         <div className="flex gap-2">
           <button
+            type="button"
             onClick={() => {
               setError(null)
               setRetryCount((c) => c + 1)
@@ -90,6 +91,7 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
             Retry
           </button>
           <button
+            type="button"
             onClick={() => onComplete()}
             className="px-3 py-2 rounded border"
           >
@@ -104,16 +106,6 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
     return <div className="text-center text-[var(--muted)]">No status available</div>
   }
 
-  const statusColors = {
-    PENDING: 'bg-slate-600',
-    UPLOADING: 'bg-yellow-600',
-    PROCESSING: 'bg-blue-600',
-    COMPLETED: 'bg-green-600',
-    FAILED: 'bg-red-600',
-  }
-
-  const statusColor = statusColors[jobStatus.status as keyof typeof statusColors] || 'bg-slate-600'
-
   return (
     <div className="space-y-5">
       {/* Header: status and progress */}
@@ -126,6 +118,7 @@ export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerPr
         </div>
         <div className="flex items-center gap-2">
           <button
+            type="button"
             onClick={() => setRetryCount((c) => c + 1)}
             className="text-sm px-2 py-1 rounded border"
           >

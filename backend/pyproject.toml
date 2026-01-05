@@ -32,6 +32,15 @@ dependencies = [
     "pydantic>=2.4.0",
     "pydantic-settings>=2.0.0",
     "google-generativeai>=0.3.0",
+    # AI/ML Dependencies
+    "ultralytics>=8.0.0",
+    "mediapipe>=0.10.0",
+    "transformers>=4.30.0",
+    "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "Pillow>=10.0.0",
+    # Optional: Real-ESRGAN for video enhancement
+    # "realesrgan>=0.2.5",  # Uncomment when needed
 ]
 
 [tool.setuptools]

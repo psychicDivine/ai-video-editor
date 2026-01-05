@@ -74,11 +74,12 @@ export function Frei0rSelector({ onApply }: Props) {
       <div className="preset-list">
         {Object.entries(presets).map(([k, p]) => (
           <button
-            key={k}
-            className={`preset-button ${selected === k ? "selected" : ""}`}
-            onClick={() => setSelected(k)}
-            title={`${p.filter} ${p.params || ""}`}
-          >
+              type="button"
+              key={k}
+              className={`preset-button ${selected === k ? "selected" : ""}`}
+              onClick={() => setSelected(k)}
+              title={`${p.filter} ${p.params || ""}`}
+            >
             {k}
           </button>
         ))}
@@ -88,7 +89,7 @@ export function Frei0rSelector({ onApply }: Props) {
         <input type="file" accept="video/*" onChange={handleFile} />
       </div>
 
-      <button className="btn btn-primary" onClick={apply} disabled={!file || !selected}>
+      <button type="button" className="btn btn-primary" onClick={apply} disabled={!file || !selected}>
         Apply Preset
       </button>
 

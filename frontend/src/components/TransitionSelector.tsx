@@ -60,6 +60,7 @@ export function TransitionSelector({ onTransitionSelect }: Props) {
       <div className="transition-grid">
         {Object.entries(transitions).map(([name, trans]) => (
           <button
+            type="button"
             key={name}
             className={`transition-button ${selectedTransition === name ? "selected" : ""}`}
             onClick={() => handleTransitionChange(name)}
@@ -94,6 +95,7 @@ export function TransitionSelector({ onTransitionSelect }: Props) {
       </div>
 
       <button
+        type="button"
         className="btn btn-primary"
         onClick={() => onTransitionSelect?.(selectedTransition, duration)}
       >

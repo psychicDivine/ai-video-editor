@@ -73,6 +73,11 @@ if transition_routes:
     app.include_router(transition_routes.router)
 if frei0r_routes:
     app.include_router(frei0r_routes.router)
+try:
+    from app.routes import beat_routes
+    app.include_router(beat_routes.router)
+except Exception:
+    logger.warning("beat_routes not available")
 
 
 def _error_payload(status_code: int, message: str, detail: str | None = None):

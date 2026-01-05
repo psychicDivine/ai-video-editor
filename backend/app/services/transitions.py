@@ -26,7 +26,18 @@ def get_xfade_name(name: str) -> str:
 
     Falls back to the default if the requested name is not known.
     """
+    import logging
+    logger = logging.getLogger(__name__)
+    
+    logger.debug(f"get_xfade_name called with name='{name}'")
     entry = TRANSITION_REGISTRY.get(name)
+    logger.debug(f"Registry entry for '{name}': {entry}")
+    
     if entry and entry.get("backend") == "ffmpeg":
-        return entry.get("xfade", TRANSITION_REGISTRY[DEFAULT_TRANSITION]["xfade"])
-    return TRANSITION_REGISTRY[DEFAULT_TRANSITION]["xfade"]
+        result = entry.get("xfade", TRANSITION_REGISTRY[DEFAULT_TRANSITION]["xfade"])
+        logger.debug(f"Returning xfade name: '{result}'")
+        return result
+    
+    default_result = TRANSITION_REGISTRY[DEFAULT_TRANSITION]["xfade"]
+    logger.debug(f"Using default xfade name: '{default_result}'")
+    return default_result

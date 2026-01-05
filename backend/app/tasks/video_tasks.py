@@ -34,6 +34,8 @@ def process_video_task(
     style: str,
     music_start_time: float = 0.0,
     music_end_time: float = 30.0,
+    enable_ai_reframing: bool = True,
+    enable_quality_enhancement: bool = False,
 ):
     """Celery task to process video asynchronously"""
     try:
@@ -69,7 +71,7 @@ def process_video_task(
 
         update_job_progress(job_id, 20, "Processing videos")
 
-        # Process video with beat-synced cuts
+        # Process video with beat-synced cuts and AI features
         success = processor.process_video(
             job_id=job_id,
             video_paths=video_paths,
@@ -79,6 +81,8 @@ def process_video_task(
             music_start_time=music_start_time,
             music_end_time=music_end_time,
             cut_points=cut_points,
+            enable_ai_reframing=enable_ai_reframing,
+            enable_quality_enhancement=enable_quality_enhancement,
         )
 
         if success:

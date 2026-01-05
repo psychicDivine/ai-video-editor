@@ -6,6 +6,9 @@ import logging
 from app.services.ffmpeg_handler import FFmpegHandler
 from app.services.transitions import get_xfade_name
 from app.services.ai_director import AIDirector
+from app.services.style_editor import StyleEditor
+from app.services.ai_reframing import AIReframingService
+from app.services.video_enhancement import VideoEnhancementService
 from app.exporters.mlt_exporter import MLTExporter
 from app.routes.jobs import update_job_progress, mark_job_complete, mark_job_failed
 
@@ -18,6 +21,9 @@ class VideoProcessor:
     def __init__(self):
         self.ffmpeg = FFmpegHandler()
         self.ai_director = AIDirector()
+        self.style_editor = StyleEditor()
+        self.ai_reframing = AIReframingService()
+        self.video_enhancer = VideoEnhancementService()
 
     def process_video(
         self,
@@ -31,6 +37,8 @@ class VideoProcessor:
         cut_points: Optional[List[float]] = None,
         transition_name: Optional[str] = None,
         export_mlt: bool = False,
+        enable_ai_reframing: bool = True,
+        enable_quality_enhancement: bool = True,
     ) -> bool:
         """Process video: detect beats, cut segments, concatenate, transitions, mix audio"""
         try:
@@ -139,7 +147,75 @@ class VideoProcessor:
             if not clips_to_concat:
                 raise Exception("No video segments could be created")
 
-            update_job_progress(job_id, 50, "Concatenating videos")
+            update_job_progress(job_id, 40, "Applying style processing")
+            
+            # Step 3.5: Apply Style to Segments
+            styled_clips = []
+            for i, clip_path in enumerate(clips_to_concat):
+                styled_path = segments_dir / f"styled_segment_{i}.mp4"
+                
+                success = self.style_editor.apply_style_to_video(
+                    clip_path,
+                    str(styled_path),
+                    style
+                )
+                
+                if success:
+                    styled_clips.append(str(styled_path))
+                    logger.info(f"Applied {style} style to segment {i+1}/{len(clips_to_concat)}")
+                else:
+                    # Fallback to original if styling fails
+                    styled_clips.append(clip_path)
+                    logger.warning(f"Style processing failed for segment {i+1}, using original")
+            
+            clips_to_concat = styled_clips
+
+            # Step 3.6: Apply AI Reframing (if enabled)
+            if enable_ai_reframing:
+                update_job_progress(job_id, 50, "Analyzing video for smart reframing")
+                reframed_clips = []
+                
+                for i, clip_path in enumerate(clips_to_concat):
+                    try:
+                        reframed_path = segments_dir / f"reframed_segment_{i}.mp4"
+                        
+                        logger.info(f"Applying AI reframing to segment {i+1}/{len(clips_to_concat)}")
+                        
+                        # Analyze and reframe the segment
+                        analyses = self.ai_reframing.analyze_video_for_reframing(clip_path, sample_rate=5)
+                        
+                        if analyses:
+                            # Get reframing stats for logging
+                            stats = self.ai_reframing.get_reframing_stats(analyses)
+                            logger.info(f"Segment {i+1} analysis: {stats['subject_detection_rate']:.1%} subject detection, "
+                                      f"{stats['average_engagement_score']:.2f} avg engagement")
+                            
+                            # Apply smart reframing
+                            reframe_success = self.ai_reframing.apply_smart_reframing(
+                                clip_path,
+                                str(reframed_path),
+                                analyses
+                            )
+                            
+                            if reframe_success:
+                                reframed_clips.append(str(reframed_path))
+                                logger.info(f"Successfully reframed segment {i+1}")
+                            else:
+                                reframed_clips.append(clip_path)  # Use original if reframing fails
+                                logger.warning(f"Reframing failed for segment {i+1}, using original")
+                        else:
+                            # No analysis data, use original
+                            reframed_clips.append(clip_path)
+                            logger.warning(f"No analysis data for segment {i+1}, using original")
+                    
+                    except Exception as e:
+                        logger.error(f"Error reframing segment {i+1}: {e}")
+                        reframed_clips.append(clip_path)  # Use original if error
+                
+                clips_to_concat = reframed_clips
+                update_job_progress(job_id, 55, "AI reframing complete")
+
+            update_job_progress(job_id, 60, "Concatenating videos")
 
             # Step 4: Concatenate segments (with transitions when requested)
             concat_path = output_dir / "concat.mp4"
@@ -171,13 +247,40 @@ class VideoProcessor:
             # Step 5: Resize skipped (handled in trim_video)
             # We now have a standardized 1080x1920 video at concat_path
 
-            update_job_progress(job_id, 70, "Transitions applied")
+            # Step 5.5: Apply Quality Enhancement (if enabled)
+            if enable_quality_enhancement:
+                update_job_progress(job_id, 75, "Enhancing video quality")
+                
+                # Check if enhancement is needed
+                if self.video_enhancer.is_enhancement_needed(str(concat_path)):
+                    enhanced_path = output_dir / "enhanced.mp4"
+                    
+                    logger.info("Applying AI-powered quality enhancement")
+                    enhancement_success = self.video_enhancer.enhance_video_quality(
+                        str(concat_path),
+                        str(enhanced_path),
+                        scale=2  # 2x upscaling
+                    )
+                    
+                    if enhancement_success:
+                        transition_path = enhanced_path
+                        logger.info("Video quality enhancement completed")
+                    else:
+                        transition_path = concat_path
+                        logger.warning("Quality enhancement failed, using original")
+                else:
+                    transition_path = concat_path
+                    logger.info("Video quality sufficient, skipping enhancement")
+            else:
+                transition_path = concat_path
+
+            update_job_progress(job_id, 80, "Style processing complete")
 
             # The `concat_path` already contains video-level transitions (video-only).
             # We'll mix the trimmed audio in the next step.
             transition_path = concat_path
 
-            update_job_progress(job_id, 80, "Mixing audio")
+            update_job_progress(job_id, 85, "Mixing audio")
 
             # Step 7: Mix audio with video (Final Step)
             # Trim audio to user selection
@@ -201,9 +304,6 @@ class VideoProcessor:
 
             # Cleanup intermediate files
             self._cleanup_intermediate_files(output_dir)
-            import shutil
-            if segments_dir.exists():
-                shutil.rmtree(segments_dir)
 
             # Delete all uploads except output.mp4
             for f in output_dir.iterdir():
@@ -238,6 +338,16 @@ class VideoProcessor:
                     file_path.unlink()
                 except Exception as e:
                     logger.warning(f"Failed to delete {filename}: {e}")
+        
+        # Clean up segments directory (including styled segments)
+        segments_dir = output_dir / "segments"
+        if segments_dir.exists():
+            try:
+                import shutil
+                shutil.rmtree(segments_dir)
+                logger.info("Cleaned up segments directory")
+            except Exception as e:
+                logger.warning(f"Failed to delete segments directory: {e}")
 
     async def process_video_async(
         self,

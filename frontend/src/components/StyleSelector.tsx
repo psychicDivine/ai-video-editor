@@ -35,6 +35,7 @@ export default function StyleSelector({ selectedStyle, onStyleChange }: StyleSel
     <div className="space-y-4">
       {styles.map((style) => (
         <button
+          type="button"
           key={style.id}
           onClick={() => onStyleChange(style.id)}
           className={`w-full p-4 rounded-lg border-2 transition text-left ${
