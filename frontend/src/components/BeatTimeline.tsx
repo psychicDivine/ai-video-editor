@@ -39,6 +39,7 @@ export default function BeatTimeline({
   const playheadCanvasRef = useRef<HTMLCanvasElement>(null)
   
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null)
+  const [waveReady, setWaveReady] = useState(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const previewSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const previewTimeoutRef = useRef<number | null>(null)
@@ -61,6 +62,7 @@ export default function BeatTimeline({
         const decoded = await ctx.decodeAudioData(arrayBuffer)
         if (!cancelled) {
           setAudioBuffer(decoded)
+          setWaveReady(true)
           // Suspend context to avoid blocking HTML audio element
           try { await ctx.suspend() } catch (e) {}
         }
@@ -74,6 +76,7 @@ export default function BeatTimeline({
       cancelled = true
       stopPreview()
       try { ctx.close() } catch (e) {} 
+      setWaveReady(false)
     }
   }, [musicFile])
 
@@ -402,9 +405,9 @@ export default function BeatTimeline({
   }
 
   return (
-    <div className="w-full h-full flex flex-col gap-4" ref={containerRef}>
+    <div className="w-full min-h-[280px] flex flex-col gap-4" ref={containerRef}>
       {/* Main Canvas Area */}
-      <div className="flex-1 relative group min-h-0 rounded-lg overflow-hidden border border-slate-800 bg-[#0b0f14]">
+      <div className="flex-1 relative group min-h-[200px] rounded-lg overflow-hidden border border-slate-800 bg-[#0b0f14]">
         {/* Layer 1: Waveform */}
         <canvas 
           ref={waveformCanvasRef} 
@@ -418,9 +421,18 @@ export default function BeatTimeline({
           onMouseLeave={handleMouseLeave}
           className="absolute inset-0 w-full h-full block cursor-crosshair z-10"
         />
+
+        {!waveReady && (
+          <div className="absolute inset-0 flex items-center justify-center text-slate-400 text-sm bg-black/50 backdrop-blur-sm z-20">
+            <div className="flex items-center gap-2">
+              <span className="animate-spin">*</span>
+              <span>Loading waveform...</span>
+            </div>
+          </div>
+        )}
         
         {/* Floating Controls */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md p-1.5 rounded-lg border border-white/10 z-20">
+        <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md p-1.5 rounded-lg border border-neon-red/40 z-20">
           <button
             type="button"
             onClick={(e) => {
@@ -428,7 +440,7 @@ export default function BeatTimeline({
               if (!playPending) onTogglePlay()
             }}
             disabled={playPending}
-            className={`w-8 h-8 flex items-center justify-center rounded bg-neon-green/10 text-neon-green border border-neon-green/50 hover:bg-neon-green hover:text-black transition-all ${playPending ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className={`w-8 h-8 flex items-center justify-center rounded bg-neon-red/10 text-neon-red border border-neon-red/50 hover:bg-neon-red hover:text-black transition-all ${playPending ? 'opacity-60 cursor-not-allowed' : ''}`}
           >
             {playPending ? '…' : (isPlaying ? '⏸' : '▶')}
           </button>
@@ -450,8 +462,8 @@ export default function BeatTimeline({
             onClick={(e) => { e.stopPropagation(); onTogglePlay() }}
             className="absolute inset-0 flex items-center justify-center cursor-pointer group/play z-20"
           >
-            <div className="w-16 h-16 rounded-full bg-neon-green/10 border border-neon-green/50 flex items-center justify-center backdrop-blur-sm shadow-[0_0_30px_rgba(57,255,122,0.2)] animate-pulse group-hover/play:scale-110 transition-transform">
-              <span className="text-3xl text-neon-green ml-1">▶</span>
+            <div className="w-16 h-16 rounded-full bg-neon-red/10 border border-neon-red/50 flex items-center justify-center backdrop-blur-sm shadow-[0_0_40px_rgba(255,0,0,0.25)] animate-pulse group-hover/play:scale-110 transition-transform">
+              <span className="text-3xl text-neon-red ml-1">▶</span>
             </div>
           </div>
         )}

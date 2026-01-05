@@ -55,6 +55,18 @@ Core Pipeline [■■□□□□□□□□] 20% - PARTIALLY WORKING
 UI/Frontend   [■■■■□□□□□□] 40% - FUNCTIONAL
 ```
 
+## UI Restructure — Reels Studio (2026-01-04)
+
+- Goal: audio workspace lives in the primary studio canvas (not a footer), alongside uploads and style selection.
+- Completed: merged MusicTimeline + BeatTimeline into the main scrollable surface with shared chrome; play/analyze/reset still available.
+- Next: tighten spacing/typography across the new card, align buttons with CTA row, and re-check drag/resize + playback after spacing polish.
+
+## AI / LLM Roadmap Notes (no reprioritization)
+
+- Keep P0/P1 fixes above as-is; these are notes only.
+- Future additions: local llama.cpp reasoning for beat/cut scoring, LLM-based reframing/hook copy surfaced in the editor, and tie-ins to existing AI tickets (TICKET-BEAT-1, TICKET-HOOK-1).
+- Slot detailed work into the existing AI feature tickets rather than changing current critical path.
+
 ---
 
 ## **Sprint 1 - CRITICAL BUG FIXES (2026-01-03 → 2026-01-05)**

@@ -190,6 +190,23 @@ export default function UploadForm({ onJobCreated, style, onStyleChange }: Uploa
     setMusicEndTime(endTime)
   }
 
+  const setRegionLength = (windowSeconds: number) => {
+    if (!music) return
+    const total = duration || musicEndTime || windowSeconds
+    const nextEnd = Math.min(total, musicStartTime + windowSeconds)
+    const nextStart = Math.max(0, nextEnd - windowSeconds)
+    setMusicStartTime(nextStart)
+    setMusicEndTime(nextEnd)
+  }
+
+  const setFullRegion = () => {
+    if (!music) return
+    const total = duration || musicEndTime
+    if (!total) return
+    setMusicStartTime(0)
+    setMusicEndTime(total)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
@@ -250,9 +267,10 @@ export default function UploadForm({ onJobCreated, style, onStyleChange }: Uploa
         />
       )}
       
-      {/* Top Workspace (Assets & Style) */}
-      <div className="flex-1 p-6 overflow-y-auto custom-scrollbar">
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 h-full">
+      <div className="flex-1 overflow-y-auto custom-scrollbar">
+        <div className="p-6 space-y-6">
+          {/* Workspace (Assets & Style) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           
           {/* Column 1: Video Assets */}
           <div className="flex flex-col gap-6 h-full">
@@ -382,126 +400,144 @@ export default function UploadForm({ onJobCreated, style, onStyleChange }: Uploa
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Bottom Panel: Audio Workbench */}
-      <div className="h-[380px] bg-[#080a0e] border-t border-white/5 flex flex-col relative z-20 shadow-[0_-10px_40px_rgba(0,0,0,0.5)]">
-        {music ? (
-          <div className="flex-1 flex flex-col">
-            {/* Workbench Header */}
-            <div className="h-12 border-b border-white/5 flex items-center justify-between px-6 bg-slate-900/50 backdrop-blur-sm">
-              <div className="flex items-center gap-4">
-                <label className="text-neon-green font-mono text-xs tracking-widest uppercase flex items-center gap-2">
-                  <span className="animate-pulse w-2 h-2 rounded-full bg-neon-green shadow-[0_0_10px_rgba(57,255,122,0.5)]"></span>
-                  Audio Intelligence Workbench
-                </label>
-                <div className="h-4 w-px bg-white/10"></div>
-                <span className="text-xs font-mono text-slate-400">
-                  {musicStartTime.toFixed(1)}s - {musicEndTime.toFixed(1)}s SELECTED
-                </span>
-              </div>
+        {/* Audio Workbench (integrated, not docked) */}
+        <section className="bg-slate-900/40 backdrop-blur-md border border-white/5 rounded-2xl p-6">
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div className="flex items-center gap-3">
+                  <label className="text-neon-green font-mono text-xs tracking-widest uppercase flex items-center gap-2">
+                    <span className="animate-pulse w-2 h-2 rounded-full bg-neon-green shadow-[0_0_10px_rgba(57,255,122,0.5)]"></span>
+                    Audio Intelligence Studio
+                  </label>
+                  {music && (
+                    <span className="text-xs font-mono text-slate-400">
+                      {musicStartTime.toFixed(1)}s – {musicEndTime.toFixed(1)}s selected
+                    </span>
+                  )}
+                </div>
 
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={togglePlay}
-                  disabled={playPending}
-                  className={`
-                    w-8 h-8 flex items-center justify-center rounded-full border transition-all
-                      ${isPlaying 
-                        ? 'border-neon-green text-neon-green bg-neon-green/10 shadow-[0_0_10px_rgba(57,255,122,0.3)]' 
-                        : 'border-slate-500 text-slate-400 hover:border-neon-green hover:text-neon-green'}
-                  `}
-                >
+                <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex items-center gap-2 bg-black/30 border border-white/10 rounded-lg px-2 py-1 text-[10px] font-mono text-slate-300">
+                    <span className="uppercase tracking-wider">Region</span>
+                    <button
+                      type="button"
+                      onClick={() => setRegionLength(30)}
+                      disabled={!music}
+                      className={`px-2 py-1 rounded border transition-all ${!music ? 'opacity-40 cursor-not-allowed border-slate-700 text-slate-500' : 'border-slate-700 hover:border-neon-green hover:text-neon-green'}`}
+                    >
+                      30s
+                    </button>
+                    <button
+                      type="button"
+                      onClick={setFullRegion}
+                      disabled={!music}
+                      className={`px-2 py-1 rounded border transition-all ${!music ? 'opacity-40 cursor-not-allowed border-slate-700 text-slate-500' : 'border-slate-700 hover:border-neon-green hover:text-neon-green'}`}
+                    >
+                      Full
+                    </button>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={togglePlay}
+                    disabled={playPending || !music}
+                    className={`
+                      w-9 h-9 flex items-center justify-center rounded-full border transition-all
+                        ${isPlaying 
+                          ? 'border-neon-green text-neon-green bg-neon-green/10 shadow-[0_0_10px_rgba(57,255,122,0.3)]' 
+                          : 'border-slate-600 text-slate-400 hover:border-neon-green hover:text-neon-green'}
+                        ${!music ? 'opacity-50 cursor-not-allowed' : ''}
+                    `}
+                  >
                     {playPending ? '…' : (isPlaying ? '⏸' : '▶')}
-                </button>
+                  </button>
 
-                <button
-                  type="button"
-                  onClick={async () => {
-                    setAnalyzing(true)
-                    try {
-                      const fd = new FormData()
-                      fd.append('audio', music)
-                      const query = `?start=${musicStartTime}&end=${musicEndTime}`
-                      const resp = await fetch('/api/analyze-beats' + query, { method: 'POST', body: fd })
-                      if (!resp.ok) throw new Error('Analysis failed')
-                      const data = await resp.json()
-                      setBeats(data.beats || [])
-                      setProposedCuts(data.proposedCuts || [])
-                    } catch (err) {
-                      setError(err instanceof Error ? err.message : 'Beat analysis failed')
-                    } finally {
-                      setAnalyzing(false)
-                    }
-                  }}
-                  disabled={analyzing}
-                  className="px-4 py-1.5 rounded bg-neon-green/10 text-neon-green border border-neon-green/30 hover:bg-neon-green/20 text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-2"
-                >
-                  {analyzing ? <span className="animate-spin">⚡</span> : <span>🔎</span>}
-                  {analyzing ? 'Processing...' : 'Analyze Region'}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => {
-                    setBeats([])
-                    setProposedCuts([])
-                  }}
-                  className="px-3 py-1.5 rounded border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-[10px] font-mono uppercase transition-colors"
-                >
-                  Reset
-                </button>
-              </div>
-            </div>
-
-            {/* Workbench Content */}
-            <div className="flex-1 flex overflow-hidden">
-              {/* Main Editor Area */}
-              <div className="flex-1 p-6 flex flex-col gap-4 relative">
-                {/* Region Navigator (Top Strip) */}
-                <div className="h-16 bg-black/40 rounded-lg border border-white/5 relative overflow-hidden">
-                   <MusicTimeline 
-                    musicFile={music} 
-                    onTimeSelect={handleTimeSelect}
-                    currentTime={currentTime}
-                    duration={duration}
-                    isPlaying={isPlaying}
-                    onTogglePlay={togglePlay}
-                    onSeek={seek}
-                    startTime={musicStartTime}
-                    endTime={musicEndTime}
-                  />
-                </div>
-
-                {/* Main Waveform (Bottom Large) */}
-                <div className="flex-1 bg-black/40 rounded-xl border border-white/5 relative overflow-hidden p-4">
-                  <BeatTimeline
-                    musicFile={music}
-                    beats={beats}
-                    proposedCuts={proposedCuts}
-                    currentTime={currentTime}
-                    isPlaying={isPlaying}
-                    onTogglePlay={togglePlay}
-                    onSeek={seek}
-                    regionStart={musicStartTime}
-                    regionEnd={musicEndTime}
-                    onSelectCut={(t) => seek(t)}
-                    onAcceptedCuts={(cuts) => setAcceptedCuts(cuts)}
-                    playPending={playPending}
-                  />
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      if (!music) return
+                      setAnalyzing(true)
+                      try {
+                        const fd = new FormData()
+                        fd.append('audio', music)
+                        const query = `?start=${musicStartTime}&end=${musicEndTime}`
+                        const resp = await fetch('/api/analyze-beats' + query, { method: 'POST', body: fd })
+                        if (!resp.ok) throw new Error('Analysis failed')
+                        const data = await resp.json()
+                        setBeats(data.beats || [])
+                        setProposedCuts(data.proposedCuts || [])
+                      } catch (err) {
+                        setError(err instanceof Error ? err.message : 'Beat analysis failed')
+                      } finally {
+                        setAnalyzing(false)
+                      }
+                    }}
+                    disabled={analyzing || !music}
+                    className={`px-4 py-1.5 rounded text-[10px] font-mono uppercase tracking-wider transition-all flex items-center gap-2 border
+                      ${!music ? 'opacity-50 cursor-not-allowed border-slate-700 text-slate-500' : 'bg-neon-green/10 text-neon-green border-neon-green/30 hover:bg-neon-green/20'}`}
+                  >
+                    {analyzing ? <span className="animate-spin">⚡</span> : <span>🔎</span>}
+                    {analyzing ? 'Processing...' : 'Analyze Region'}
+                  </button>
+                  
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setBeats([])
+                      setProposedCuts([])
+                    }}
+                    className="px-3 py-1.5 rounded border border-slate-700 text-slate-400 hover:text-white hover:border-slate-500 text-[10px] font-mono uppercase transition-colors"
+                  >
+                    Reset
+                  </button>
                 </div>
               </div>
+
+              {music ? (
+                <div className="flex flex-col gap-4">
+                  <div className="h-16 bg-black/40 rounded-lg border border-white/5 relative overflow-hidden">
+                    <MusicTimeline 
+                      musicFile={music} 
+                      onTimeSelect={handleTimeSelect}
+                      currentTime={currentTime}
+                      duration={duration}
+                      isPlaying={isPlaying}
+                      onTogglePlay={togglePlay}
+                      onSeek={seek}
+                      startTime={musicStartTime}
+                      endTime={musicEndTime}
+                    />
+                  </div>
+
+                  <div className="min-h-[260px] bg-black/40 rounded-xl border border-white/5 relative overflow-hidden p-4">
+                    <BeatTimeline
+                      musicFile={music}
+                      beats={beats}
+                      proposedCuts={proposedCuts}
+                      currentTime={currentTime}
+                      isPlaying={isPlaying}
+                      onTogglePlay={togglePlay}
+                      onSeek={seek}
+                      regionStart={musicStartTime}
+                      regionEnd={musicEndTime}
+                      onSelectCut={(t) => seek(t)}
+                      onAcceptedCuts={(cuts) => setAcceptedCuts(cuts)}
+                      playPending={playPending}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center py-10 text-slate-600 font-mono text-sm">
+                  <div className="text-center">
+                    <div className="text-4xl mb-4 opacity-20">🎹</div>
+                    <p>Upload audio to activate the studio</p>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ) : (
-          <div className="flex-1 flex items-center justify-center text-slate-600 font-mono text-sm">
-            <div className="text-center">
-              <div className="text-4xl mb-4 opacity-20">🎹</div>
-              <p>UPLOAD AUDIO TO ACTIVATE WORKBENCH</p>
-            </div>
-          </div>
-        )}
+          </section>
+        </div>
       </div>
     </form>
   )
