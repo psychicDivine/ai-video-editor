@@ -4,6 +4,7 @@ Upscales and enhances video quality using Real-ESRGAN
 """
 import subprocess
 import logging
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -12,26 +13,35 @@ logger = logging.getLogger(__name__)
 class VideoEnhancementService:
     """Real-ESRGAN video quality enhancement"""
     
+    _check_cache = None # Class-level cache for availability
+    
     def __init__(self):
         """Initialize enhancement service"""
         self.realesrgan_available = False
         self.model_path = None
         
-        # Check if Real-ESRGAN is available
+        # Check if Real-ESRGAN is available (using cache)
+        if VideoEnhancementService._check_cache is not None:
+            self.realesrgan_available = VideoEnhancementService._check_cache
+            return
+
         try:
+            # Short timeout to avoid hanging the whole worker
             result = subprocess.run(
-                ["python", "-c", "import realesrgan; print('available')"],
+                [sys.executable, "-c", "import realesrgan; print('available')"],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=5
             )
             if result.returncode == 0 and "available" in result.stdout:
                 self.realesrgan_available = True
                 logger.info("Real-ESRGAN available for video enhancement")
             else:
-                logger.warning("Real-ESRGAN not available - install with: pip install realesrgan")
+                logger.warning("Real-ESRGAN not available")
         except Exception as e:
-            logger.warning(f"Real-ESRGAN check failed: {e}")
+            logger.warning(f"Real-ESRGAN check failed or timed out: {e}")
+        
+        VideoEnhancementService._check_cache = self.realesrgan_available
     
     def enhance_video_quality(
         self,

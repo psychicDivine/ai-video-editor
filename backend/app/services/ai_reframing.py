@@ -49,6 +49,8 @@ class FrameAnalysis:
     engagement_score: float
     crop_bounds: Tuple[int, int, int, int]  # x1, y1, x2, y2
     needs_enhancement: bool
+    layout_type: str = "portrait" # portrait, split_screen
+    secondary_subject: Optional[SubjectBounds] = None
 
 class AIReframingService:
     """Complete AI-powered video reframing with subject tracking"""
@@ -57,8 +59,43 @@ class AIReframingService:
         """Initialize all AI models"""
         self.yolo_available = False
         self.smol_vlm_available = False
+        self.mediapipe_available = False
         
-        # Initialize YOLOv8
+        # Initialize MediaPipe (Primary: Face + Pose)
+        try:
+            import mediapipe as mp
+            try:
+                # Standard path
+                from mediapipe.solutions import face_detection as mp_face_detection
+                from mediapipe.solutions import pose as mp_pose
+            except ImportError:
+                # Alternate path found on some Windows/UV installs
+                import mediapipe.python.solutions.face_detection as mp_face_detection
+                import mediapipe.python.solutions.pose as mp_pose
+            
+            self.mp_face_detection = mp_face_detection
+            self.mp_pose = mp_pose
+            
+            # Smart Cameraman: Face Detector
+            self.face_detector = self.mp_face_detection.FaceDetection(
+                model_selection=1, # 1 = distant faces (better for full body shots)
+                min_detection_confidence=0.5
+            )
+            
+            # Smart Cameraman: Pose Detector (for gestures)
+            self.pose_detector = self.mp_pose.Pose(
+                static_image_mode=True, # We process frame by frame
+                model_complexity=1,
+                min_detection_confidence=0.5,
+                min_tracking_confidence=0.5
+            )
+            
+            self.mediapipe_available = True
+            logger.info("MediaPipe Face & Pose initialized (Smart Cameraman Mode)")
+        except Exception as e:
+            logger.warning(f"MediaPipe not available: {e}")
+
+        # Initialize YOLOv8 (Secondary/Fallback)
         try:
             from ultralytics import YOLO
             self.yolo_model = YOLO('yolov8n.pt')  # Lightweight model
@@ -151,9 +188,19 @@ class AIReframingService:
         # Find primary subject (largest, most central person)
         primary_subject = self._find_primary_subject(subjects, frame.shape)
         
+        # Find secondary subject (if any)
+        secondary_subject = self._find_secondary_subject(subjects, primary_subject)
+        
         # Calculate optimal crop bounds
         crop_bounds = self._calculate_optimal_crop(frame, primary_subject)
         
+        # Decide layout
+        layout_type = "portrait"
+        if primary_subject and secondary_subject:
+             # Heuristic: if both subjects are large enough
+             if primary_subject.width > frame.shape[1] * 0.15 and secondary_subject.width > frame.shape[1] * 0.15:
+                 layout_type = "split_screen"
+
         # Analyze composition quality with SmolVLM
         composition_score = self._analyze_composition(frame, crop_bounds)
         engagement_score = self._analyze_engagement(frame, crop_bounds)
@@ -166,16 +213,25 @@ class AIReframingService:
             timestamp=timestamp,
             subjects=subjects,
             primary_subject=primary_subject,
+            secondary_subject=secondary_subject,
             composition_score=composition_score,
             engagement_score=engagement_score,
             crop_bounds=crop_bounds,
-            needs_enhancement=needs_enhancement
+            needs_enhancement=needs_enhancement,
+            layout_type=layout_type
         )
     
     def _detect_subjects(self, frame: np.ndarray) -> List[SubjectBounds]:
-        """Detect people and other subjects in frame using YOLOv8"""
+        """Detect people using MediaPipe (Smart Cameraman) or YOLOv8 (Fallback)"""
         subjects = []
         
+        # 1. Try MediaPipe Smart Cameraman (Face + Gesture)
+        if self.mediapipe_available:
+            smart_subject = self._detect_smart_subject(frame)
+            if smart_subject:
+                return [smart_subject]
+
+        # 2. Fallback to YOLOv8
         if not self.yolo_available:
             # Fallback: assume center crop
             h, w = frame.shape[:2]
@@ -194,9 +250,8 @@ class AIReframingService:
                     for box in result.boxes:
                         x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
                         confidence = box.conf[0].cpu().numpy()
-                        class_id = int(box.cls[0].cpu().numpy())
                         
-                        if confidence > 0.3:  # Minimum confidence threshold
+                        if confidence > 0.3:
                             subjects.append(SubjectBounds(
                                 x1=float(x1), y1=float(y1),
                                 x2=float(x2), y2=float(y2),
@@ -209,6 +264,71 @@ class AIReframingService:
         except Exception as e:
             logger.warning(f"YOLOv8 detection failed: {e}")
             return []
+
+    def _detect_smart_subject(self, frame: np.ndarray) -> Optional[SubjectBounds]:
+        """
+        Smart Cameraman Logic:
+        1. Find Face (Primary Anchor)
+        2. Find Hands/Wrists (Secondary Interest)
+        3. Create a 'Action Zone' bounding box that includes Face + Active Gestures
+        """
+        try:
+            h, w = frame.shape[:2]
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # A. Detect Face
+            face_results = self.face_detector.process(rgb_frame)
+            if not face_results.detections:
+                return None
+                
+            # Take the largest face
+            detection = max(face_results.detections, key=lambda d: d.location_data.relative_bounding_box.width * d.location_data.relative_bounding_box.height)
+            bbox = detection.location_data.relative_bounding_box
+            
+            # Base Box: Face
+            x1 = bbox.xmin * w
+            y1 = bbox.ymin * h
+            x2 = (bbox.xmin + bbox.width) * w
+            y2 = (bbox.ymin + bbox.height) * h
+            
+            # B. Detect Pose (for hands)
+            pose_results = self.pose_detector.process(rgb_frame)
+            if pose_results.pose_landmarks:
+                landmarks = pose_results.pose_landmarks.landmark
+                
+                # Check Wrists (15=Left Wrist, 16=Right Wrist)
+                left_wrist = landmarks[15]
+                right_wrist = landmarks[16]
+                
+                # Expand box if wrist is confident and "high enough" (above waist approx)
+                # Note: y increases downwards. Waist is roughly hip level (23, 24).
+                waist_y = (landmarks[23].y + landmarks[24].y) / 2
+                
+                for wrist in [left_wrist, right_wrist]:
+                    if wrist.visibility > 0.5 and wrist.y < waist_y:
+                        # Wrist is active (above waist/hips)
+                        wx, wy = wrist.x * w, wrist.y * h
+                        x1 = min(x1, wx)
+                        y1 = min(y1, wy)
+                        x2 = max(x2, wx)
+                        y2 = max(y2, wy)
+            
+            # Pad the "Action Zone" slightly
+            padding_x = (x2 - x1) * 0.2
+            padding_y = (y2 - y1) * 0.2
+            
+            return SubjectBounds(
+                x1=max(0, x1 - padding_x),
+                y1=max(0, y1 - padding_y),
+                x2=min(w, x2 + padding_x),
+                y2=min(h, y2 + padding_y),
+                confidence=detection.score[0],
+                class_name="smart_subject"
+            )
+            
+        except Exception as e:
+            logger.error(f"MediaPipe detection failed: {e}")
+            return None
     
     def _find_primary_subject(
         self, 
@@ -249,6 +369,20 @@ class AIReframingService:
         # Return highest scoring subject
         scored_subjects.sort(key=lambda x: x[0], reverse=True)
         return scored_subjects[0][1]
+
+    def _find_secondary_subject(
+        self, 
+        subjects: List[SubjectBounds], 
+        primary_subject: Optional[SubjectBounds]
+    ) -> Optional[SubjectBounds]:
+        """Find the second most important subject for split-screen"""
+        if not subjects or not primary_subject or len(subjects) < 2:
+            return None
+            
+        remaining = [s for s in subjects if s != primary_subject]
+        # Return largest remaining person
+        remaining.sort(key=lambda s: s.width * s.height, reverse=True)
+        return remaining[0]
     
     def _calculate_optimal_crop(
         self, 
@@ -267,19 +401,30 @@ class AIReframingService:
             if primary_subject:
                 # Center crop around primary subject
                 subject_center_x = primary_subject.center_x
+                
+                # Rule of Thirds / Smart Centering
+                # If subject is moving left/right, we might want to lead them, but for now center is safe.
+                
                 crop_x1 = max(0, int(subject_center_x - crop_width / 2))
                 crop_x1 = min(crop_x1, w - crop_width)
                 crop_x2 = crop_x1 + crop_width
                 
-                # Add padding to keep subject fully in frame
-                subject_padding = primary_subject.width * 0.2
-                if crop_x1 > primary_subject.x1 - subject_padding:
-                    crop_x1 = max(0, int(primary_subject.x1 - subject_padding))
-                    crop_x2 = min(w, crop_x1 + crop_width)
-                
-                if crop_x2 < primary_subject.x2 + subject_padding:
-                    crop_x2 = min(w, int(primary_subject.x2 + subject_padding))
-                    crop_x1 = max(0, crop_x2 - crop_width)
+                # Constraint: Keep subject fully in frame if possible
+                # But prioritize keeping the center of action visible
+                subject_width = primary_subject.x2 - primary_subject.x1
+                if subject_width > crop_width:
+                     # Subject is wider than crop (zoomed in too much?)
+                     # Clamp to center of subject
+                     pass
+                else:
+                    # Ensure edges are within crop if possible
+                    if primary_subject.x1 < crop_x1:
+                        crop_x1 = max(0, int(primary_subject.x1))
+                        crop_x2 = crop_x1 + crop_width
+                    elif primary_subject.x2 > crop_x2:
+                        crop_x2 = min(w, int(primary_subject.x2))
+                        crop_x1 = crop_x2 - crop_width
+            
             else:
                 # Center crop if no subject detected
                 crop_x1 = (w - crop_width) // 2
@@ -293,10 +438,26 @@ class AIReframingService:
             crop_height = int(w / self.TARGET_ASPECT)
             
             if primary_subject:
-                # Center crop around primary subject
+                # Smart Vertical Framing
                 subject_center_y = primary_subject.center_y
-                crop_y1 = max(0, int(subject_center_y - crop_height / 2))
-                crop_y1 = min(crop_y1, h - crop_height)
+                
+                if primary_subject.class_name == "smart_subject":
+                    # For smart subjects (Faces), eyes should be at 1/3 from top (approx 33%)
+                    # The 'center_y' of our smart box is roughly the nose/mouth level.
+                    # We want that to be at roughly 40-45% of the crop height.
+                    target_center_y = crop_height * 0.45
+                    
+                    # Calculate where the crop top needs to be
+                    # output_y_center = subject_y - crop_y1
+                    # target_center_y = subject_center_y - crop_y1
+                    # => crop_y1 = subject_center_y - target_center_y
+                    
+                    crop_y1 = int(subject_center_y - target_center_y)
+                else:
+                    # Standard center frame
+                    crop_y1 = int(subject_center_y - crop_height / 2)
+                
+                crop_y1 = max(0, min(crop_y1, h - crop_height))
                 crop_y2 = crop_y1 + crop_height
             else:
                 # Center crop if no subject detected

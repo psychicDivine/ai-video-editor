@@ -12,13 +12,13 @@ interface MusicTimelineProps {
   endTime: number
 }
 
-export default function MusicTimeline({ 
-  musicFile: _musicFile, 
-  onTimeSelect, 
-  currentTime, 
-  duration, 
-  isPlaying: _isPlaying, 
-  onTogglePlay: _onTogglePlay, 
+export default function MusicTimeline({
+  musicFile: _musicFile,
+  onTimeSelect,
+  currentTime,
+  duration,
+  isPlaying: _isPlaying,
+  onTogglePlay: _onTogglePlay,
   onSeek,
   startTime,
   endTime
@@ -50,7 +50,7 @@ export default function MusicTimeline({
     decode()
     return () => {
       cancelled = true
-      try { ctx.close() } catch (e) {}
+      try { ctx.close() } catch (e) { }
     }
   }, [_musicFile])
 
@@ -74,12 +74,6 @@ export default function MusicTimeline({
     }
     return { data: out, step, length: samples }
   }, [audioBuffer])
-
-  const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60)
-    const secs = Math.floor(seconds % 60)
-    return `${mins}:${secs.toString().padStart(2, '0')}`
-  }
 
   // Ensure start/end always fit within the available duration
   useEffect(() => {
@@ -159,7 +153,7 @@ export default function MusicTimeline({
     }
 
     ctx.clearRect(0, 0, width, height)
-    ctx.fillStyle = '#0b0f14'
+    ctx.fillStyle = '#05070a' // Use canvas background
     ctx.fillRect(0, 0, width, height)
 
     const amp = height / 2
@@ -167,15 +161,26 @@ export default function MusicTimeline({
     const pixels = width
     const samplesPerPixel = step / pixels
 
-    ctx.strokeStyle = 'rgba(0,255,180,0.6)'
+    // Professional mirrored gradient
+    const grad = ctx.createLinearGradient(0, 0, 0, height)
+    grad.addColorStop(0, '#00C2FF')
+    grad.addColorStop(0.5, '#00F0FF')
+    grad.addColorStop(1, '#00C2FF')
+
+    ctx.strokeStyle = grad
     ctx.lineWidth = Math.max(1, dpr * 0.75)
     ctx.beginPath()
     for (let x = 0; x < pixels; x++) {
       const i = Math.floor(x * samplesPerPixel) * 2
       const min = peaks.data[i] || 0
       const max = peaks.data[i + 1] || 0
-      const y1 = (1 + min) * amp
-      const y2 = (1 + max) * amp
+
+      // Mirroring: Draw from center (amp) outwards to min/max
+      // min is negative (bottom), max is positive (top)
+      // Actually standard peaks are usually both positive/negative relative to zero
+      const y1 = amp + (min * amp * 0.8)
+      const y2 = amp + (max * amp * 0.8)
+
       ctx.moveTo(x, y1)
       ctx.lineTo(x, y2)
     }
@@ -187,40 +192,44 @@ export default function MusicTimeline({
   const playheadPct = (currentTime / totalDuration) * 100
 
   return (
-    <div className="w-full h-full relative bg-[#05080f] rounded-xl border border-white/5 overflow-hidden" ref={containerRef}>
-      <div className="absolute inset-x-0 top-0 flex justify-between px-3 py-2 text-[11px] font-mono text-slate-300 uppercase tracking-wide">
-        <span>Region: {formatTime(startTime)} → {formatTime(endTime)}</span>
-        <span>{formatTime(endTime - startTime)} window</span>
-      </div>
+    <div className="w-full h-full relative bg-[#0a0c10] overflow-hidden" ref={containerRef}>
+      {/* Waveform Canvas */}
+      <div className="absolute inset-0">
+        <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
 
-      <div className="absolute inset-0 pt-6 pb-3 px-3">
-        <div className="relative h-full w-full bg-slate-900/40 rounded-lg border border-white/5">
-          <canvas ref={canvasRef} className="absolute inset-0 w-full h-full" />
+        {/* Region selection indicator */}
+        <div
+          className="absolute inset-y-0 group/selection"
+          style={{
+            left: `${regionLeftPct}%`,
+            width: `${regionWidthPct}%`,
+          }}
+        >
+          {/* Core Box */}
+          <div className="absolute inset-0 bg-reel/15 border-x-2 border-reel/60 cursor-grab active:cursor-grabbing" onMouseDown={beginDrag('move')} />
 
-          {/* Playback progress */}
+          {/* LEFT HANDLE */}
           <div
-            className="absolute inset-y-0 left-0 bg-white/5 pointer-events-none"
-            style={{ width: `${playheadPct}%` }}
-          />
-
-          {/* Region selection (use red to contrast beat map green) */}
-          <div
-            className="absolute inset-y-0 bg-neon-red/15 border border-neon-red/60 shadow-[0_0_20px_rgba(255,0,0,0.18)] cursor-grab active:cursor-grabbing"
-            style={{ left: `${regionLeftPct}%`, width: `${regionWidthPct}%` }}
-            onMouseDown={beginDrag('move')}
+            className="absolute inset-y-0 -left-2 w-4 cursor-ew-resize flex items-center justify-center z-30"
+            onMouseDown={beginDrag('start')}
           >
-            <div className="absolute inset-y-0 left-0 w-2 cursor-ew-resize bg-neon-red/50" onMouseDown={beginDrag('start')} />
-            <div className="absolute inset-y-0 right-0 w-2 cursor-ew-resize bg-neon-red/50" onMouseDown={beginDrag('end')} />
-            <div className="absolute left-2 top-1 text-[10px] font-mono text-neon-red">{formatTime(startTime)}</div>
-            <div className="absolute right-2 bottom-1 text-[10px] font-mono text-neon-red">{formatTime(endTime)}</div>
+            <div className="w-1 h-8 bg-reel rounded-full" />
           </div>
 
-          {/* Playhead */}
+          {/* RIGHT HANDLE */}
           <div
-            className="absolute inset-y-0 w-px bg-white/60 pointer-events-none"
-            style={{ left: `${playheadPct}%` }}
-          />
+            className="absolute inset-y-0 -right-2 w-4 cursor-ew-resize flex items-center justify-center z-30"
+            onMouseDown={beginDrag('end')}
+          >
+            <div className="w-1 h-8 bg-reel rounded-full" />
+          </div>
         </div>
+
+        {/* Playhead */}
+        <div
+          className="absolute inset-y-0 w-0.5 bg-white pointer-events-none z-20"
+          style={{ left: `${playheadPct}%` }}
+        />
       </div>
     </div>
   )

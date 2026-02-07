@@ -7,7 +7,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import logging
 
 from app.config import settings
-from app.routes import upload, jobs, download
+from app.routes import upload, jobs, download, podcast
 try:
     from app.routes import transition_routes
 except Exception:
@@ -69,6 +69,18 @@ app.add_middleware(
 app.include_router(upload.router)
 app.include_router(jobs.router)
 app.include_router(download.router)
+app.include_router(podcast.router)
+try:
+    from app.routes import captions
+    app.include_router(captions.router)
+except Exception as e:
+    logger.warning(f"Could not load captions router: {e}")
+
+try:
+    from app.routes import youtube
+    app.include_router(youtube.router, prefix="/api/youtube", tags=["youtube"])
+except Exception as e:
+    logger.warning(f"Could not load youtube router: {e}")
 if transition_routes:
     app.include_router(transition_routes.router)
 if frei0r_routes:
@@ -78,6 +90,13 @@ try:
     app.include_router(beat_routes.router)
 except Exception:
     logger.warning("beat_routes not available")
+
+try:
+    from app.routes import plan
+    app.include_router(plan.router)
+    logger.info("plan routes loaded successfully")
+except Exception as e:
+    logger.warning(f"plan routes not available: {e}")
 
 
 def _error_payload(status_code: int, message: str, detail: str | None = None):

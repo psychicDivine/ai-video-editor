@@ -12,173 +12,197 @@ interface JobStatus {
   current_step: string | null
   error_message: string | null
   output_video_url: string | null
+  preview_video_url?: string | null
 }
 
 export default function ProgressTracker({ jobId, onComplete }: ProgressTrackerProps) {
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [retryCount, setRetryCount] = useState(0)
+  const [_retryCount, setRetryCount] = useState(0)
   const cancelRef = useRef<Canceler | null>(null)
 
   useEffect(() => {
-    // Poll with exponential backoff on errors
     let mounted = true
     let backoff = 1000
 
     const pollStatus = async () => {
+      if (!mounted) return
+
       try {
-        setLoading(true)
         const source = axios.CancelToken.source()
         cancelRef.current = source.cancel
-        const response = await axios.get(`/api/jobs/${jobId}`, { cancelToken: source.token })
+
+        const response = await axios.get(`/api/jobs/${jobId}`, {
+          cancelToken: source.token,
+          params: { _t: Date.now() }
+        })
+
         if (!mounted) return
+
         setJobStatus(response.data)
         setLoading(false)
-        backoff = 1000
+        setError(null)
+        backoff = 1000 // Reset backoff on success
 
         if (response.data.status === 'COMPLETED') {
-          // Immediately notify parent that processing finished (don't wait on completed screen)
           onComplete()
+          return
         } else if (response.data.status === 'FAILED') {
           setError(response.data.error_message || 'Processing failed')
+          return
         }
+
+        setTimeout(pollStatus, 3000)
       } catch (err) {
         if (axios.isCancel(err)) return
-        const msg = err instanceof AxiosError ? (err.response?.data?.error || err.message) : 'Failed to fetch status'
+        if (!mounted) return
+
+        const axiosError = err as AxiosError
+        const msg = (axiosError.response?.data as any)?.detail || axiosError.message || 'Failed to fetch status'
         setError(msg)
         setLoading(false)
-        // backoff and retry
-        setTimeout(() => {
-          backoff = Math.min(backoff * 1.8, 10000)
-          setRetryCount((c) => c + 1)
-        }, backoff)
+
+        const nextRetry = Math.min(backoff * 1.5, 10000)
+        backoff = nextRetry
+        setTimeout(pollStatus, nextRetry)
       }
     }
 
-    const interval = setInterval(pollStatus, 1200)
     pollStatus()
 
     return () => {
       mounted = false
-      clearInterval(interval)
       if (cancelRef.current) cancelRef.current()
     }
-  }, [jobId, onComplete, retryCount])
+  }, [jobId, onComplete])
 
   if (loading && !jobStatus) {
     return (
-      <div className="text-center text-[var(--muted)]">Initializing status…</div>
+      <div className="text-center text-slate-400 py-8">
+        <div className="animate-pulse flex flex-col items-center">
+          <div className="h-2 w-32 bg-slate-800 rounded-full mb-2"></div>
+          <p className="text-xs">Initializing secure connection...</p>
+        </div>
+      </div>
     )
   }
 
   if (error && !jobStatus) {
     return (
-      <div className="space-y-3">
-        <div className="bg-[var(--danger)]/90 text-white px-4 py-3 rounded">
-          <div className="font-semibold">Error</div>
-          <div className="text-sm mt-1">{error}</div>
+      <div className="p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+        <div className="flex items-center gap-3 text-red-400 mb-3">
+          <div className="font-bold text-sm">Connection Error</div>
         </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => {
-              setError(null)
-              setRetryCount((c) => c + 1)
-            }}
-            className="px-3 py-2 rounded bg-[var(--accent)] text-white"
-          >
-            Retry
-          </button>
-          <button
-            type="button"
-            onClick={() => onComplete()}
-            className="px-3 py-2 rounded border"
-          >
-            Cancel
-          </button>
-        </div>
+        <p className="text-xs text-red-200/60 mb-4">{error}</p>
+        <button
+          onClick={() => {
+            setError(null)
+            setLoading(true)
+            setRetryCount(c => c + 1)
+          }}
+          className="px-4 py-2 bg-red-600 hover:bg-red-500 text-white text-xs font-bold rounded-lg transition-all"
+        >
+          Re-establish Link
+        </button>
       </div>
     )
   }
 
-  if (!jobStatus) {
-    return <div className="text-center text-[var(--muted)]">No status available</div>
-  }
+  if (!jobStatus) return null
 
   return (
-    <div className="space-y-5">
-      {/* Header: status and progress */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className={`px-3 py-1 rounded-full text-white font-semibold`} style={{ background: 'var(--accent)' }}>
-            {jobStatus.status}
+    <div className="space-y-6 animate-in fade-in duration-500">
+      <div className="flex items-center justify-between">
+        <div>
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Process Status</span>
+          <div className="flex items-center gap-2">
+            <div className={`w-2 h-2 rounded-full animate-ping ${jobStatus.status === 'COMPLETED' ? 'bg-green-500' : 'bg-indigo-500'}`}></div>
+            <span className="text-xs font-bold text-white">{jobStatus.status}</span>
           </div>
-          <div className="text-sm text-[var(--muted)]">{jobStatus.progress}%</div>
         </div>
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setRetryCount((c) => c + 1)}
-            className="text-sm px-2 py-1 rounded border"
-          >
-            Refresh
-          </button>
+        <div className="text-right">
+          <span className="text-[10px] font-black uppercase tracking-widest text-slate-500 block mb-1">Efficiency</span>
+          <span className="text-xs font-bold text-indigo-400">{jobStatus.progress}%</span>
         </div>
       </div>
 
-      {/* Enhanced Progress Bar */}
-      <div className="w-full bg-[var(--glass)] rounded-full h-4 overflow-hidden">
+      <div className="relative h-2 bg-slate-800 rounded-full overflow-hidden shadow-inner">
         <div
-          className={`h-full transition-all duration-500 progress-stripes`}
-          style={{ width: `${jobStatus.progress}%`, backgroundColor: jobStatus.status === 'FAILED' ? 'var(--danger)' : 'var(--accent)' }}
-          role="progressbar"
-          aria-valuenow={jobStatus.progress}
-          aria-valuemin={0}
-          aria-valuemax={100}
-        />
+          className="absolute inset-y-0 left-0 bg-gradient-to-r from-indigo-600 to-purple-600 transition-all duration-1000 ease-out"
+          style={{ width: `${jobStatus.progress}%` }}
+        >
+          <div className="absolute inset-0 bg-[linear-gradient(45deg,rgba(255,255,255,0.15)_25%,transparent_25%,transparent_50%,rgba(255,255,255,0.15)_50%,rgba(255,255,255,0.15)_75%,transparent_75%,transparent)] bg-[length:1rem_1rem] animate-[move-bg_1s_linear_infinite]"></div>
+        </div>
       </div>
 
-      {/* Current Step */}
       {jobStatus.current_step && (
-        <div className="p-3 rounded border" style={{ background: 'var(--panel)', borderColor: 'rgba(255,255,255,0.02)' }}>
-          <p className="text-sm text-[var(--muted)]">
-            <span className="font-semibold text-white">Current Step:</span> {jobStatus.current_step}
-          </p>
+        <div className="bg-slate-900/50 border border-slate-800 p-3 rounded-xl">
+          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-tighter mb-1">Active Pipeline Step</div>
+          <p className="text-[11px] text-slate-300 font-medium italic">"{jobStatus.current_step}"</p>
         </div>
       )}
 
-      {/* Download Button and Warning */}
       {jobStatus.status === 'COMPLETED' && jobStatus.output_video_url && (
-        <>
-          <div className="w-full bg-black rounded overflow-hidden">
-            <video
-              controls
-              className="w-full max-h-96"
-              src={jobStatus.output_video_url}
-            >
-              Your browser does not support the video tag.
-            </video>
+        <div className="space-y-4 pt-2">
+          {/* Show preview if available, otherwise try output_video_url */}
+          {(jobStatus.preview_video_url || jobStatus.output_video_url.endsWith('.mp4')) && (
+            <div className="aspect-video bg-black rounded-2xl overflow-hidden border border-slate-800 shadow-2xl relative">
+              <video
+                controls
+                className="w-full h-full"
+                src={jobStatus.preview_video_url || jobStatus.output_video_url}
+                key={jobStatus.preview_video_url} // Force reload on url change
+              />
+            </div>
+          )}
+
+          {/* Quick Caption Restyle */}
+          <div className="bg-slate-900/50 border border-slate-800 p-4 rounded-xl">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h4 className="text-xs font-bold text-white">Quick Restyle</h4>
+                <p className="text-[10px] text-slate-400">Not happy? Change caption style instantly.</p>
+              </div>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-1 rounded">Preview Mode</span>
+            </div>
+
+            <div className="flex gap-2 overflow-x-auto pb-2">
+              {['classic', 'tiktok', 'hormozi', 'neon'].map(style => (
+                <button
+                  key={style}
+                  onClick={async () => {
+                    setLoading(true); // Minimal loading state
+                    try {
+                      const res = await axios.post(`/api/captions/restyle/${jobId}`, { style });
+                      // Update status with new preview
+                      setJobStatus(prev => prev ? {
+                        ...prev,
+                        preview_video_url: `${res.data.preview_url}?t=${Date.now()}`
+                      } : null);
+                    } catch (err) {
+                      console.error(err);
+                      alert("Restyle failed");
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                  className="px-3 py-2 bg-slate-800 hover:bg-indigo-600 hover:text-white text-slate-300 text-[10px] font-bold uppercase rounded-lg transition-colors whitespace-nowrap"
+                >
+                  {style}
+                </button>
+              ))}
+            </div>
           </div>
 
+          {/* Download button - always use output_video_url */}
           <a
             href={jobStatus.output_video_url}
             download
-            className="block w-full mt-3 bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-4 rounded-lg text-center transition"
+            className="flex items-center justify-center gap-2 w-full py-4 bg-green-600 hover:bg-green-500 text-white rounded-xl font-black text-xs uppercase tracking-widest transition-all shadow-[0_0_20px_rgba(22,163,74,0.3)]"
           >
-            ⬇️ Download Video
+            {jobStatus.output_video_url.includes('/zip/') ? '📦 Download All Reels (ZIP)' : '⬇️ Retrieve Processed Output'}
           </a>
-
-          <div className="mt-4 bg-yellow-900 border border-yellow-700 text-yellow-100 px-4 py-3 rounded text-sm">
-            ⚠️ <b>Important:</b> Your video will be deleted from our server after 1 hour. No upload history is kept. Please download and save your output now.
-          </div>
-        </>
-      )}
-
-      {/* Error Message */}
-      {jobStatus.status === 'FAILED' && jobStatus.error_message && (
-        <div className="bg-red-900 border border-red-700 text-red-100 px-4 py-3 rounded">
-          {jobStatus.error_message}
         </div>
       )}
     </div>

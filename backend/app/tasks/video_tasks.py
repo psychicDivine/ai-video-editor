@@ -39,6 +39,7 @@ def process_video_task(
 ):
     """Celery task to process video asynchronously"""
     try:
+        logger.info(f"Starting process_video_task for job: {job_id}")
         output_dir = Path(settings.upload_dir) / job_id
         output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -98,6 +99,38 @@ def process_video_task(
         mark_job_failed(job_id, str(e))
         raise
 
+@celery_app.task(bind=True)
+def process_podcast_task(
+    self,
+    job_id: str,
+    video_path: str,
+    audio_path: str | None,
+    enable_smart_reels: bool = True,
+    caption_style: str = "classic"
+):
+    """Background task for processing podcast"""
+    try:
+        logger.info(f"Starting process_podcast_task for job: {job_id}")
+        output_dir = Path(settings.upload_dir) / job_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        processor = VideoProcessor()
+        
+        success = processor.process_podcast_reels(
+            job_id=job_id,
+            video_path=video_path,
+            audio_path=audio_path,
+            output_dir=output_dir,
+            enable_smart_reels=enable_smart_reels,
+            caption_style=caption_style
+        )
+        
+        return success
+    except Exception as e:
+        logger.error(f"Error in podcast task: {e}")
+        mark_job_failed(job_id, str(e))
+        return False
+
 
 @celery_app.task
 def cleanup_old_jobs(days: int = 7):
@@ -142,3 +175,61 @@ def cleanup_old_outputs(hours: int = 1):
                             logger.warning(f"Failed to delete {output_file}: {e}")
     except Exception as e:
         logger.error(f"Error cleaning up old outputs: {e}")
+
+@celery_app.task(bind=True)
+def process_youtube_task(
+    self, 
+    job_id: str, 
+    url: str, 
+    enable_smart_reels: bool = True,
+    caption_style: str = "classic"
+):
+    """
+    Celery task to download YouTube video and then process it for viral reels.
+    """
+    try:
+        logger.info(f"Starting process_youtube_task for job: {job_id}")
+        # 1. Update status
+        update_job_progress(job_id, 0, "Initializing YouTube Download")
+        
+        # 2. Download
+        # Need to run async code in sync Celery task
+        import asyncio
+        from app.services.youtube_downloader import YouTubeService
+        
+        yt_service = YouTubeService()
+        
+        # Helper to run async download
+        def run_download():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(yt_service.download_video(url, job_id))
+            loop.close()
+            return result
+
+        update_job_progress(job_id, 5, "Downloading from YouTube (High Quality)...")
+        paths = run_download()
+        video_path = paths["video_path"]
+        
+        # 3. Process
+        output_dir = Path(settings.upload_dir) / job_id
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        update_job_progress(job_id, 20, "Download Complete. Starting AI Processing...")
+        
+        processor = VideoProcessor()
+        success = processor.process_podcast_reels(
+            job_id=job_id,
+            video_path=video_path,
+            audio_path=None, # Video has audio
+            output_dir=output_dir,
+            enable_smart_reels=enable_smart_reels,
+            caption_style=caption_style
+        )
+        
+        if not success:
+            raise Exception("Processing failed")
+            
+    except Exception as e:
+        logger.error(f"YouTube task failed: {e}")
+        mark_job_failed(job_id, str(e))

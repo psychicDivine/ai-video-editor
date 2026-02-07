@@ -7,27 +7,42 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Futuristic Palette
-        background: '#0b0f14', // Deep space black
-        panel: '#161b22',      // Card background
-        surface: '#1c2128',    // Input background
-        neon: {
-          green: '#39FF7A',    // Primary Action / Beat
-          blue: '#00F0FF',     // Secondary / Info
-          purple: '#B026FF',   // Accent
-          pink: '#FF2A6D',     // Highlight
+        canvas: 'var(--bg-canvas)',
+        surface: 'var(--bg-surface)',
+        'surface-elevated': 'var(--bg-surface-elevated)',
+        primary: {
+          DEFAULT: 'var(--primary)',
+          muted: 'var(--primary-muted)',
         },
-        amber: {
-          400: '#FFD166',      // Warning / Attention
-        }
+        text: {
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          muted: 'var(--text-muted)',
+        },
+        border: 'var(--border)',
+        reel: {
+          DEFAULT: 'var(--reel)',
+          glow: 'var(--reel-glow)',
+        },
+        podcast: {
+          DEFAULT: 'var(--podcast)',
+          glow: 'var(--podcast-glow)',
+        },
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
+        accent: 'var(--accent)',
       },
       fontFamily: {
-        mono: ['"JetBrains Mono"', 'monospace'], // Tech feel
-        sans: ['Inter', 'sans-serif'],
+        sans: ['"Inter"', 'system-ui', 'sans-serif'],
+        mono: ['"JetBrains Mono"', 'monospace'],
+        display: ['"Outfit"', 'sans-serif'],
       },
       boxShadow: {
-        'neon-green': '0 0 10px rgba(57, 255, 122, 0.5)',
-        'neon-blue': '0 0 10px rgba(0, 240, 255, 0.5)',
+        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.8)',
+        'neon-reel': '0 0 20px rgba(0, 240, 255, 0.3)',
+        'neon-podcast': '0 0 20px rgba(176, 38, 255, 0.3)',
+        'neon-primary': '0 0 20px rgba(59, 130, 246, 0.3)',
       }
     },
   },

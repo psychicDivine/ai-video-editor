@@ -6,7 +6,9 @@ import redis
 from datetime import datetime
 from app.config import settings
 
+import logging
 router = APIRouter(prefix="/api", tags=["jobs"])
+logger = logging.getLogger(__name__)
 
 # Initialize Redis client
 redis_client = redis.from_url(settings.redis_url, decode_responses=True)
@@ -41,6 +43,7 @@ async def get_job_status(job_id: str):
             "current_step": job.get("current_step"),
             "error_message": job.get("error_message"),
             "output_video_url": job.get("output_video_url"),
+            "preview_video_url": job.get("preview_video_url"),
         },
     )
 
@@ -78,6 +81,7 @@ def update_job_progress(job_id: str, progress: int, current_step: str = None):
     key = get_job_key(job_id)
     job_data = redis_client.get(key)
     
+    logger.info(f"Updating job {job_id} to {progress}% - {current_step}")
     if job_data:
         job = json.loads(job_data)
         job["progress"] = progress
@@ -88,6 +92,8 @@ def update_job_progress(job_id: str, progress: int, current_step: str = None):
         redis_client.set(key, json.dumps(job))
         # Refresh expiry
         redis_client.expire(key, 86400)
+    else:
+        logger.warning(f"Attempted to update non-existent job: {job_id}")
 
 
 def mark_job_complete(job_id: str, output_video_url: str = None):

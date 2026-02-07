@@ -18,32 +18,33 @@ interface BeatTimelineProps {
   onTogglePlay: () => void
   onSeek: (time: number) => void
   playPending?: boolean
+  zoom?: number
 }
 
-export default function BeatTimeline({ 
-  musicFile, 
-  beats = [], 
-  proposedCuts = [], 
-  onSelectCut, 
-  onAcceptedCuts, 
-  regionStart = 0, 
+export default function BeatTimeline({
+  musicFile,
+  beats = [],
+  proposedCuts = [],
+  onSelectCut,
+  onAcceptedCuts,
+  regionStart = 0,
   regionEnd,
   currentTime,
   isPlaying,
   onTogglePlay,
-  onSeek
-  , playPending = false
+  onSeek: _onSeek,
+  playPending = false,
+  zoom = 1
 }: BeatTimelineProps) {
   const containerRef = useRef<HTMLDivElement>(null)
   const waveformCanvasRef = useRef<HTMLCanvasElement>(null)
   const playheadCanvasRef = useRef<HTMLCanvasElement>(null)
-  
+
   const [audioBuffer, setAudioBuffer] = useState<AudioBuffer | null>(null)
   const [waveReady, setWaveReady] = useState(false)
   const audioCtxRef = useRef<AudioContext | null>(null)
   const previewSourceRef = useRef<AudioBufferSourceNode | null>(null)
   const previewTimeoutRef = useRef<number | null>(null)
-  const [zoom] = useState<number>(1)
   const [snapToBeats, setSnapToBeats] = useState(true)
   const [acceptedCuts, setAcceptedCuts] = useState<Record<number, boolean>>({})
   const [hoverTime, setHoverTime] = useState<number | null>(null)
@@ -64,7 +65,7 @@ export default function BeatTimeline({
           setAudioBuffer(decoded)
           setWaveReady(true)
           // Suspend context to avoid blocking HTML audio element
-          try { await ctx.suspend() } catch (e) {}
+          try { await ctx.suspend() } catch (e) { }
         }
       } catch (err) {
         console.error('Audio decode failed', err)
@@ -72,10 +73,10 @@ export default function BeatTimeline({
     }
 
     decode()
-    return () => { 
+    return () => {
       cancelled = true
       stopPreview()
-      try { ctx.close() } catch (e) {} 
+      try { ctx.close() } catch (e) { }
       setWaveReady(false)
     }
   }, [musicFile])
@@ -87,9 +88,9 @@ export default function BeatTimeline({
     const raw = audioBuffer.getChannelData(0)
     const samples = raw.length
     // Target ~20000 points for the whole file (enough for 4k screens)
-    const step = Math.ceil(samples / 20000) 
+    const step = Math.ceil(samples / 20000)
     const data = new Float32Array(Math.ceil(samples / step) * 2)
-    
+
     for (let i = 0, ptr = 0; i < samples; i += step) {
       let min = 1.0
       let max = -1.0
@@ -107,11 +108,17 @@ export default function BeatTimeline({
   // Helper to get view window
   const getViewWindow = () => {
     if (!audioBuffer) return { start: 0, end: 0 }
-    
+
     if (regionEnd) {
-      return { start: regionStart, end: regionEnd }
+      // Apply zoom to the selected region
+      const regionDuration = regionEnd - regionStart
+      const zoomedDuration = regionDuration / zoom
+      const center = regionStart + regionDuration / 2
+      const start = Math.max(regionStart, center - zoomedDuration / 2)
+      const end = Math.min(regionEnd, center + zoomedDuration / 2)
+      return { start, end }
     }
-    
+
     const viewSec = Math.max(5, audioBuffer.duration / zoom)
     const center = Math.min(Math.max(currentTime, viewSec / 2), Math.max(audioBuffer.duration - viewSec / 2, 0))
     const start = Math.max(0, center - viewSec / 2)
@@ -127,7 +134,7 @@ export default function BeatTimeline({
     const dpr = window.devicePixelRatio || 1
     const width = canvas.clientWidth * dpr
     const height = canvas.clientHeight * dpr
-    
+
     if (canvas.width !== width || canvas.height !== height) {
       canvas.width = width
       canvas.height = height
@@ -136,18 +143,15 @@ export default function BeatTimeline({
     const c = canvas.getContext('2d')
     if (!c) return
 
-    // Clear
-    c.fillStyle = '#0b0f14'
+    // Clear background
+    c.fillStyle = '#05070a'
     c.fillRect(0, 0, width, height)
 
-    // Grid
-    c.strokeStyle = 'rgba(255, 255, 255, 0.05)'
-    c.lineWidth = 1
+    // Center Zero-Crossing Line
+    c.strokeStyle = 'rgba(255, 255, 255, 0.03)'
     c.beginPath()
-    for (let i = 0; i < width; i += 50 * dpr) {
-      c.moveTo(i, 0)
-      c.lineTo(i, height)
-    }
+    c.moveTo(0, height / 2)
+    c.lineTo(width, height / 2)
     c.stroke()
 
     const { start: viewStart, end: viewEnd } = getViewWindow()
@@ -156,81 +160,91 @@ export default function BeatTimeline({
 
     // Draw Waveform using Peaks
     const amp = height / 2
-    c.shadowBlur = 0
-    c.strokeStyle = '#39FF7A'
-    c.lineWidth = Math.max(1, dpr)
+
+    // Professional mirrored gradient
+    const grad = c.createLinearGradient(0, height * 0.2, 0, height * 0.8)
+    grad.addColorStop(0, '#00C2FF')
+    grad.addColorStop(0.5, '#00F0FF')
+    grad.addColorStop(1, '#00C2FF')
+
+    c.strokeStyle = grad
+    c.lineWidth = Math.max(1, dpr * 0.75)
     c.beginPath()
 
     // Map pixel x to time, then to peak index
     const pixels = width
     const timePerPixel = viewDuration / pixels
-    
+
     for (let x = 0; x < pixels; x++) {
       const t = viewStart + x * timePerPixel
       const sampleIdx = Math.floor(t * audioBuffer.sampleRate)
       const peakIdx = Math.floor(sampleIdx / peaks.step) * 2
-      
+
       if (peakIdx >= 0 && peakIdx < peaks.data.length - 1) {
         const min = peaks.data[peakIdx]
         const max = peaks.data[peakIdx + 1]
-        
-        // Optimization: Skip flat lines
-        if (Math.abs(min) < 0.01 && Math.abs(max) < 0.01) {
-            c.moveTo(x, amp)
-            c.lineTo(x, amp)
-            continue
-        }
 
-        const y1 = (1 + min) * amp
-        const y2 = (1 + max) * amp
+        // Mirroring: ensure we draw from center out
+        // Apply 0.8 scaling to leave some padding at top/bottom
+        const y1 = amp + (min * amp * 0.85)
+        const y2 = amp + (max * amp * 0.85)
+
         c.moveTo(x, y1)
         c.lineTo(x, y2)
       }
     }
     c.stroke()
 
-    // Draw Beats
-    // brighter, taller beat markers
+    // Draw Beats - Professional Centered Look
     beats.forEach((b) => {
       if (b < viewStart || b > viewEnd) return
       const x = ((b - viewStart) / viewDuration) * width
-      c.fillStyle = 'rgba(255, 209, 102, 0.9)'
-      c.fillRect(x - 2, height * 0.05, 4, height * 0.9)
-      // highlight small halo
-      c.beginPath()
-      c.arc(x, height * 0.5, 6 * dpr, 0, Math.PI * 2)
-      c.fillStyle = 'rgba(255,209,102,0.06)'
-      c.fill()
+
+      // Glow under the beat
+      const beatGrad = c.createLinearGradient(x, 0, x, height)
+      beatGrad.addColorStop(0, 'rgba(255, 0, 255, 0)')
+      beatGrad.addColorStop(0.5, 'rgba(255, 0, 255, 0.4)')
+      beatGrad.addColorStop(1, 'rgba(255, 0, 255, 0)')
+
+      c.fillStyle = beatGrad
+      c.fillRect(x - 4 * dpr, 0, 8 * dpr, height)
+
+      // Core Beat line
+      c.fillStyle = '#FF00FF'
+      c.shadowBlur = 10
+      c.shadowColor = 'rgba(255, 0, 255, 0.8)'
+      c.fillRect(x - 1 * dpr, height * 0.1, 2 * dpr, height * 0.8)
+      c.shadowBlur = 0
     })
 
     // Draw Cuts
     proposedCuts.forEach((p) => {
       if (p.time < viewStart || p.time > viewEnd) return
       const x = ((p.time - viewStart) / viewDuration) * width
-      
+
       if (acceptedCuts[p.time]) {
         c.fillStyle = '#39FF7A'
-        c.fillRect(x - 2, 0, 4, height)
+        c.fillRect(x - 1.5 * dpr, 0, 3 * dpr, height)
       } else {
         c.fillStyle = p.confidence && p.confidence < 0.5 ? 'rgba(239, 68, 68, 0.5)' : 'rgba(255, 209, 102, 0.8)'
-        c.fillRect(x - 1, height * 0.8, 2, height * 0.2)
+        c.fillRect(x - 0.5 * dpr, height * 0.8, 1 * dpr, height * 0.2)
       }
     })
 
-    // Draw hover marker if present
+    // Draw hover marker
     if (hoverTime !== null && hoverTime >= viewStart && hoverTime <= viewEnd && hoverX !== null) {
-      const x = hoverX
-      c.strokeStyle = 'rgba(255,255,255,0.2)'
+      const x = hoverX * dpr
+      c.strokeStyle = 'rgba(255,255,255,0.4)'
       c.lineWidth = 1 * dpr
+      c.setLineDash([4, 4])
       c.beginPath()
       c.moveTo(x, 0)
       c.lineTo(x, height)
       c.stroke()
-      c.fillStyle = 'rgba(255,255,255,0.06)'
-      c.fillRect(x - 10, height * 0.02, 20, height * 0.12)
+      c.setLineDash([])
     }
 
-  }, [peaks, beats, proposedCuts, zoom, regionStart, regionEnd, currentTime, acceptedCuts]) 
+  }, [peaks, beats, proposedCuts, zoom, regionStart, regionEnd, currentTime, acceptedCuts])
   // Note: We still depend on currentTime for scrolling, but using 'peaks' makes it fast (20k points vs 10M)
 
   // Play a short preview at a given time (used on hover)
@@ -290,13 +304,13 @@ export default function BeatTimeline({
     c.clearRect(0, 0, width, height)
 
     const { start: viewStart, end: viewEnd } = getViewWindow()
-    
+
     if (currentTime >= viewStart && currentTime <= viewEnd) {
       const x = ((currentTime - viewStart) / (viewEnd - viewStart)) * width
-      c.strokeStyle = '#FF2A6D'
-      c.lineWidth = 2 * dpr
-      c.shadowBlur = 5
-      c.shadowColor = '#FF2A6D'
+      c.strokeStyle = '#00F0FF'
+      c.lineWidth = 3 * dpr
+      c.shadowBlur = 10
+      c.shadowColor = 'rgba(0, 240, 255, 0.8)'
       c.beginPath()
       c.moveTo(x, 0)
       c.lineTo(x, height)
@@ -317,9 +331,9 @@ export default function BeatTimeline({
     const rect = canvas.getBoundingClientRect()
     const x = e.clientX - rect.left
     const { start: viewStart, end: viewEnd } = getViewWindow()
-    
+
     let time = viewStart + (x / rect.width) * (viewEnd - viewStart)
-    
+
     if (snapToBeats && beats.length) {
       let nearest = beats[0]
       let best = Math.abs(time - nearest)
@@ -387,7 +401,7 @@ export default function BeatTimeline({
       stopPreview()
       // Ensure AudioContext is suspended to not interfere with HTML audio
       if (audioCtxRef.current && audioCtxRef.current.state === 'running') {
-        audioCtxRef.current.suspend().catch(() => {})
+        audioCtxRef.current.suspend().catch(() => { })
       }
     }
   }, [isPlaying])
@@ -405,16 +419,16 @@ export default function BeatTimeline({
   }
 
   return (
-    <div className="w-full min-h-[280px] flex flex-col gap-4" ref={containerRef}>
+    <div className="w-full h-full flex flex-col" ref={containerRef}>
       {/* Main Canvas Area */}
-      <div className="flex-1 relative group min-h-[200px] rounded-lg overflow-hidden border border-slate-800 bg-[#0b0f14]">
+      <div className="flex-1 relative group min-h-0 rounded-lg overflow-hidden border border-slate-800 bg-[#0b0f14]">
         {/* Layer 1: Waveform */}
-        <canvas 
-          ref={waveformCanvasRef} 
+        <canvas
+          ref={waveformCanvasRef}
           className="absolute inset-0 w-full h-full block"
         />
         {/* Layer 2: Playhead & Interaction */}
-        <canvas 
+        <canvas
           ref={playheadCanvasRef}
           onClick={handleCanvasClick}
           onMouseMove={handleMouseMove}
@@ -430,9 +444,9 @@ export default function BeatTimeline({
             </div>
           </div>
         )}
-        
-        {/* Floating Controls */}
-        <div className="absolute top-4 right-4 flex items-center gap-2 bg-black/60 backdrop-blur-md p-1.5 rounded-lg border border-neon-red/40 z-20">
+
+        {/* Floating Controls - Simplified */}
+        <div className="absolute top-2 right-2 flex items-center gap-2 bg-black/70 backdrop-blur-md px-2 py-1 rounded-lg z-20 border border-white/10">
           <button
             type="button"
             onClick={(e) => {
@@ -440,30 +454,29 @@ export default function BeatTimeline({
               if (!playPending) onTogglePlay()
             }}
             disabled={playPending}
-            className={`w-8 h-8 flex items-center justify-center rounded bg-neon-red/10 text-neon-red border border-neon-red/50 hover:bg-neon-red hover:text-black transition-all ${playPending ? 'opacity-60 cursor-not-allowed' : ''}`}
+            className="w-7 h-7 flex items-center justify-center rounded bg-reel/20 text-reel border border-reel/30 hover:bg-reel/30 transition-all disabled:opacity-50"
           >
             {playPending ? '…' : (isPlaying ? '⏸' : '▶')}
           </button>
-          <div className="h-4 w-px bg-white/10 mx-1"></div>
-          <label className="text-[10px] uppercase tracking-widest text-slate-400 font-bold px-2 cursor-pointer select-none flex items-center gap-2">
+          <label className="text-[9px] text-text-muted font-medium px-1 cursor-pointer select-none flex items-center gap-1.5">
             <span>Snap</span>
-            <input 
-              type="checkbox" 
-              checked={snapToBeats} 
+            <input
+              type="checkbox"
+              checked={snapToBeats}
               onChange={(e) => setSnapToBeats(e.target.checked)}
-              className="accent-neon-green w-3 h-3 rounded border-slate-600 bg-slate-800"
+              className="accent-reel w-3 h-3"
             />
           </label>
         </div>
 
-        {/* Play Overlay */}
-        {!isPlaying && (
-          <div 
+        {/* Center Play Button - Only when paused */}
+        {!isPlaying && waveReady && (
+          <div
             onClick={(e) => { e.stopPropagation(); onTogglePlay() }}
-            className="absolute inset-0 flex items-center justify-center cursor-pointer group/play z-20"
+            className="absolute inset-0 flex items-center justify-center cursor-pointer group/play z-15"
           >
-            <div className="w-16 h-16 rounded-full bg-neon-red/10 border border-neon-red/50 flex items-center justify-center backdrop-blur-sm shadow-[0_0_40px_rgba(255,0,0,0.25)] animate-pulse group-hover/play:scale-110 transition-transform">
-              <span className="text-3xl text-neon-red ml-1">▶</span>
+            <div className="w-12 h-12 rounded-full flex items-center justify-center bg-reel/20 border border-reel/40 hover:bg-reel/30 hover:scale-110 transition-all">
+              <span className="text-xl ml-0.5 text-reel">▶</span>
             </div>
           </div>
         )}
@@ -482,39 +495,23 @@ export default function BeatTimeline({
         )}
       </div>
 
-      {/* Proposed Cuts Strip */}
+      {/* Proposed Cuts Strip - Compact */}
       {proposedCuts.length > 0 && (
-        <div className="h-10 flex items-center gap-2 overflow-x-auto custom-scrollbar pb-1 px-1">
-          <div className="text-[10px] uppercase tracking-widest text-slate-500 font-bold whitespace-nowrap mr-2 sticky left-0 bg-[#080a0e] z-10 pr-2">
-            Detected Cuts
-          </div>
+        <div className="h-8 shrink-0 flex items-center gap-1.5 overflow-x-auto custom-scrollbar px-1 bg-black/30 border-t border-white/5">
+          <span className="text-[8px] uppercase text-text-muted font-bold whitespace-nowrap mr-1">Cuts:</span>
           {proposedCuts.map((p, i) => (
-            <div
+            <button
               key={i}
+              onClick={() => toggleAccept(p.time)}
               className={`
-                flex-shrink-0 flex items-center rounded border text-[10px] font-mono transition-all overflow-hidden
-                ${acceptedCuts[p.time] 
-                  ? 'bg-neon-green/20 border-neon-green text-neon-green shadow-[0_0_10px_rgba(57,255,122,0.2)]' 
-                  : 'bg-slate-800/50 border-slate-700 text-slate-400 hover:border-slate-500 hover:text-slate-200'}
+                flex-shrink-0 px-2 py-0.5 rounded text-[9px] font-mono transition-all border
+                ${acceptedCuts[p.time]
+                  ? 'bg-reel/20 border-reel text-reel'
+                  : 'bg-white/5 border-white/10 text-text-muted hover:border-white/30'}
               `}
             >
-              <button 
-                type="button"
-                onClick={() => onSeek(p.time)}
-                className="px-2 py-1 hover:bg-white/10 border-r border-white/10"
-                title="Jump to time"
-              >
-                {formatTime(p.time)}
-              </button>
-              <button 
-                type="button"
-                onClick={() => toggleAccept(p.time)}
-                className="px-2 py-1 hover:bg-white/10 font-bold"
-                title="Toggle Cut"
-              >
-                {acceptedCuts[p.time] ? '✓' : '+'}
-              </button>
-            </div>
+              {formatTime(p.time)} {acceptedCuts[p.time] ? '✓' : '+'}
+            </button>
           ))}
         </div>
       )}

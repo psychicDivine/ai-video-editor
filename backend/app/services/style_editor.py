@@ -12,7 +12,8 @@ logger = logging.getLogger(__name__)
 class StyleEditor:
     """Handles style-specific video processing and color grading"""
     
-    # Style configurations based on project requirements
+    # Style configurations synced with frontend StyleSelector.tsx
+    # These IDs must match exactly with frontend style IDs
     STYLE_CONFIGS = {
         "cinematic_drama": {
             "color_temperature": 5600,  # Cool tones
@@ -20,15 +21,17 @@ class StyleEditor:
             "contrast": 1.1,
             "brightness": 0.95,
             "gamma": 1.05,
-            "description": "Professional, dramatic, moody"
-        },
-        "cinematic": {  # Alias for cinematic_drama
-            "color_temperature": 5600,
-            "saturation": 0.9,
-            "contrast": 1.1,
-            "brightness": 0.95,
-            "gamma": 1.05,
-            "description": "Professional, dramatic, moody"
+            "description": "Professional, dramatic, moody",
+            "ai_prompt": """
+Create a dramatic, emotionally impactful edit.
+PACING: Slower, deliberate cuts (4-6 seconds per clip)
+EFFECTS: Use slowmo on emotional peaks, subtle zoom on faces
+TRANSITIONS: Prefer crossfade and dissolve for smooth flow
+COLOR: Desaturated, cool tones, high contrast, add vignette
+RHYTHM: Build tension, peak at 70%, gentle resolution
+BEATS: Cut on every 2nd or 4th beat, not every beat
+MOOD: Cinematic, thoughtful, powerful
+            """.strip()
         },
         "energetic_dance": {
             "color_temperature": 2700,  # Warm tones
@@ -36,7 +39,17 @@ class StyleEditor:
             "contrast": 1.15,
             "brightness": 1.05,
             "gamma": 0.95,
-            "description": "Energetic, confident, fast-paced"
+            "description": "Energetic, confident, fast-paced",
+            "ai_prompt": """
+Create high-energy, beat-synced edit for maximum engagement.
+PACING: Fast cuts (1-2 seconds), cut ON strong beats
+EFFECTS: Speed ramps (slow before beat, fast after), zoom punch on drops
+TRANSITIONS: Whip, slide, quick cuts - avoid slow fades
+COLOR: Vibrant, saturated, high contrast, flash white on impacts
+RHYTHM: Constant energy, peak drops with zoom + flash
+BEATS: Cut on EVERY strong beat, sync perfectly
+MOOD: Energetic, hype, dynamic
+            """.strip()
         },
         "luxe_travel": {
             "color_temperature": 3200,  # Warm golden
@@ -44,7 +57,17 @@ class StyleEditor:
             "contrast": 1.05,
             "brightness": 1.02,
             "gamma": 1.0,
-            "description": "Wanderlust, luxury, peaceful"
+            "description": "Wanderlust, luxury, peaceful",
+            "ai_prompt": """
+Create aspirational, smooth travel content.
+PACING: Medium cuts (3-4 seconds), flowing movement
+EFFECTS: Ken Burns zoom, subtle speed adjustments, gentle motion
+TRANSITIONS: Smooth slides, elegant dissolves
+COLOR: Warm golden tones, lifted shadows, soft contrast
+RHYTHM: Relaxed flow, showcase scenery
+BEATS: Loose beat sync, prioritize visual flow over strict timing
+MOOD: Dreamy, aspirational, serene
+            """.strip()
         },
         "modern_minimal": {
             "color_temperature": 4500,  # Neutral
@@ -52,9 +75,40 @@ class StyleEditor:
             "contrast": 1.0,
             "brightness": 1.0,
             "gamma": 1.0,
-            "description": "Clean, professional, modern"
+            "description": "Clean, professional, modern",
+            "ai_prompt": """
+Create clean, professional content.
+PACING: Balanced cuts (2-3 seconds)
+EFFECTS: Minimal - clean cuts preferred, subtle zoom only
+TRANSITIONS: Simple cuts or short crossfades
+COLOR: Neutral, clean whites, subtle contrast
+RHYTHM: Steady, predictable, professional
+BEATS: Moderate beat sync, not aggressive
+MOOD: Professional, polished, trustworthy
+            """.strip()
+        },
+        "viral_tiktok": {
+            "color_temperature": 4000,  # Slightly warm
+            "saturation": 1.3,  # High saturation
+            "contrast": 1.2,
+            "brightness": 1.05,
+            "gamma": 0.95,
+            "description": "Attention-grabbing, trend-optimized",
+            "ai_prompt": """
+Create attention-grabbing, trend-optimized content.
+PACING: Very fast (0.5-1.5 seconds), hook in first 1 second
+EFFECTS: Freeze frames, speed ramps, zoom punch, shake on impacts
+TRANSITIONS: Whip, glitch, quick slides
+COLOR: High saturation, punchy, eye-catching
+RHYTHM: Immediate hook, constant stimulus, no boring moments
+BEATS: Aggressive beat sync, visual on every beat
+MOOD: Viral, engaging, scroll-stopping
+            """.strip()
         }
     }
+    
+    # Alias for backward compatibility
+    STYLE_CONFIGS["cinematic"] = STYLE_CONFIGS["cinematic_drama"]
     
     def __init__(self):
         """Initialize StyleEditor"""
@@ -271,3 +325,22 @@ class StyleEditor:
         else:
             logger.warning(f"Unknown style '{style}', returning default")
             return self.STYLE_CONFIGS["cinematic"].copy()
+
+    def get_ai_prompt(self, style: str) -> str:
+        """
+        Get the AI editing prompt for a specific style.
+        Used by AI Director to understand editing instructions.
+        
+        Args:
+            style: Style name
+            
+        Returns:
+            str: AI prompt with editing instructions
+        """
+        style = style.lower().replace(" ", "_").replace("-", "_")
+        
+        if style in self.STYLE_CONFIGS:
+            return self.STYLE_CONFIGS[style].get("ai_prompt", "")
+        else:
+            logger.warning(f"Unknown style '{style}', using cinematic_drama")
+            return self.STYLE_CONFIGS["cinematic_drama"].get("ai_prompt", "")

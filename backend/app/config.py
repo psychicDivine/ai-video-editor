@@ -1,5 +1,6 @@
 from pydantic_settings import BaseSettings
-from typing import Optional
+from typing import Optional, Generator
+from contextlib import contextmanager
 import os
 from pathlib import Path
 
@@ -18,6 +19,7 @@ class Settings(BaseSettings):
 
     # File Upload
     upload_dir: str = "./uploads"
+    upload_folder: str = "./uploads"  # Alias for compatibility
     max_file_size: int = 104857600  # 100MB
 
     # Allowed Formats
@@ -48,3 +50,53 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+
+def get_settings() -> Settings:
+    """Get application settings instance."""
+    return settings
+
+
+# Database session management
+_SessionLocal = None
+
+
+def _get_session_class():
+    """Lazy initialization of database session."""
+    global _SessionLocal
+    if _SessionLocal is None:
+        try:
+            from sqlalchemy import create_engine
+            from sqlalchemy.orm import sessionmaker
+            engine = create_engine(settings.database_url)
+            _SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+        except Exception:
+            _SessionLocal = None
+    return _SessionLocal
+
+
+def get_db() -> Generator:
+    """Dependency for FastAPI routes to get a database session."""
+    SessionLocal = _get_session_class()
+    if SessionLocal is None:
+        yield None
+        return
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+@contextmanager
+def get_db_session():
+    """Context manager for getting a database session outside of FastAPI."""
+    SessionLocal = _get_session_class()
+    if SessionLocal is None:
+        yield None
+        return
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()

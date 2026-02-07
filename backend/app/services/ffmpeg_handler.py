@@ -1,12 +1,70 @@
 import subprocess
 import json
 from pathlib import Path
-from typing import List, Optional
+from typing import List, Optional, Dict
+from enum import Enum
 import logging
 import os
 import shutil
 
 logger = logging.getLogger(__name__)
+
+
+class TransitionType(str, Enum):
+    """Available FFmpeg xfade transitions"""
+    # Fades
+    FADE = "fade"
+    DISSOLVE = "dissolve"
+    FADEBLACK = "fadeblack"
+    FADEWHITE = "fadewhite"
+    
+    # Wipes
+    WIPELEFT = "wipeleft"
+    WIPERIGHT = "wiperight"
+    WIPEUP = "wipeup"
+    WIPEDOWN = "wipedown"
+    
+    # Slides
+    SLIDELEFT = "slideleft"
+    SLIDERIGHT = "slideright"
+    SLIDEUP = "slideup"
+    SLIDEDOWN = "slidedown"
+    
+    # Crops/Shapes
+    CIRCLECROP = "circlecrop"
+    CIRCLEOPEN = "circleopen"
+    CIRCLECLOSE = "circleclose"
+    RECTCROP = "rectcrop"
+    
+    # Other
+    PIXELIZE = "pixelize"
+    RADIAL = "radial"
+    DIAGTL = "diagtl"
+    DIAGTR = "diagtr"
+    DIAGBL = "diagbl"
+    DIAGBR = "diagbr"
+
+
+# Transition metadata for UI/AI
+TRANSITION_CATALOG = {
+    "fade": {"name": "Fade", "description": "Simple cross-fade", "duration": 0.5, "energy": "low"},
+    "dissolve": {"name": "Dissolve", "description": "Soft dissolve blend", "duration": 0.5, "energy": "low"},
+    "fadeblack": {"name": "Fade Black", "description": "Fade through black", "duration": 0.6, "energy": "low"},
+    "fadewhite": {"name": "Fade White", "description": "Fade through white (flash)", "duration": 0.3, "energy": "high"},
+    "wipeleft": {"name": "Wipe Left", "description": "Wipe from right to left", "duration": 0.3, "energy": "medium"},
+    "wiperight": {"name": "Wipe Right", "description": "Wipe from left to right", "duration": 0.3, "energy": "medium"},
+    "wipeup": {"name": "Wipe Up", "description": "Wipe upward", "duration": 0.3, "energy": "medium"},
+    "wipedown": {"name": "Wipe Down", "description": "Wipe downward", "duration": 0.3, "energy": "medium"},
+    "slideleft": {"name": "Slide Left", "description": "Slide in from right", "duration": 0.3, "energy": "high"},
+    "slideright": {"name": "Slide Right", "description": "Slide in from left", "duration": 0.3, "energy": "high"},
+    "slideup": {"name": "Slide Up", "description": "Slide in from bottom", "duration": 0.3, "energy": "high"},
+    "slidedown": {"name": "Slide Down", "description": "Slide in from top", "duration": 0.3, "energy": "high"},
+    "circlecrop": {"name": "Zoom In", "description": "Circular zoom transition", "duration": 0.4, "energy": "high"},
+    "circleopen": {"name": "Circle Open", "description": "Circle expanding out", "duration": 0.4, "energy": "medium"},
+    "circleclose": {"name": "Circle Close", "description": "Circle closing in", "duration": 0.4, "energy": "medium"},
+    "pixelize": {"name": "Pixelize", "description": "Pixelation effect", "duration": 0.4, "energy": "high"},
+    "radial": {"name": "Radial", "description": "Radial wipe", "duration": 0.5, "energy": "medium"},
+}
 
 
 class FFmpegHandler:
@@ -236,7 +294,8 @@ class FFmpegHandler:
             # Build filter graph: format inputs to support alpha required by xfade
             v_filters = []
             for i in range(n):
-                v_filters.append(f"[{i}:v]format=yuva420p,setsar=1[v{i}];")
+                # Normalize FPS to avoid xfade timebase errors when clips differ
+                v_filters.append(f"[{i}:v]format=yuva420p,setsar=1,fps=30[v{i}];")
 
             # Chain xfade filters for video
             cumulative = durations[0]
@@ -407,6 +466,98 @@ class FFmpegHandler:
             logger.error(f"Error mixing audio: {e}")
             return False
 
+    def trim_video(self, input_path: str, output_path: str, start: float, duration: float, width: int = None, height: int = None) -> bool:
+        """
+        Trim video segment.
+        Note: This uses re-encoding now if width/height are provided, ensuring frame accuracy.
+        """
+        try:
+            cmd = [self.ffmpeg_cmd, "-y", "-ss", str(start), "-i", input_path, "-t", str(duration)]
+            
+            # If resizing is needed
+            if width and height:
+                cmd.extend(["-vf", f"scale={width}:{height}:force_original_aspect_ratio=decrease,pad={width}:{height}:(ow-iw)/2:(oh-ih)/2"])
+                cmd.extend(["-c:v", "libx264", "-preset", "fast", "-crf", "23"])
+            else:
+                 # If just simple trim, try stream copy for speed, BUT for viral clips we prefer re-encode
+                 # actually process_podcast_reels will call separate method.
+                 cmd.extend(["-c", "copy"])
+
+            cmd.append(output_path)
+            
+            subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            return True
+        except Exception:
+            return False
+
+    def extract_broadcast_clip(
+        self, 
+        input_path: str, 
+        output_path: str, 
+        start: float, 
+        duration: float, 
+        target_width: int = 1080, 
+        target_height: int = 1920
+    ) -> bool:
+        """
+        Extracts a clip with Broadcast Standards:
+        1. Exact Cutting (Re-encode)
+        2. Lanczos Scaling (High Quality)
+        3. Audio Normalization (Loudnorm -16 LUFS)
+        4. Micro-Fade In/Out (0.15s)
+        """
+        try:
+            # Safety check for duration
+            if duration < 0.5:
+                logger.warning(f"Clip duration {duration}s is too short for broadcast effects. Using simple trim.")
+                return self.trim_video(input_path, output_path, start, duration, target_width, target_height)
+
+            # Use -ss and -t as INPUT options for accurate seeking
+            # Video: scale -> crop -> fade
+            # Audio: loudnorm -> fade
+            
+            # Ensure fade out doesn't overlap with fade in
+            fade_duration = 0.15
+            if duration < 0.4: 
+                fade_duration = duration / 3.0
+            
+            fade_out_start = duration - fade_duration
+            
+            # Complex filter chain
+            # Note: We use specific string formatting to avoid syntax errors
+            filter_complex = (
+                f"[0:v]scale={target_width}:{target_height}:flags=lanczos:force_original_aspect_ratio=increase,"
+                f"crop={target_width}:{target_height},"
+                f"fade=t=in:st=0:d={fade_duration},"
+                f"fade=t=out:st={fade_out_start}:d={fade_duration}[v];"
+                f"[0:a]loudnorm=I=-16:TP=-1.5:LRA=11,"
+                f"afade=t=in:st=0:d={fade_duration},"
+                f"afade=t=out:st={fade_out_start}:d={fade_duration}[a]"
+            )
+            
+            cmd = [
+                self.ffmpeg_cmd, "-y",
+                "-ss", str(start),  # Input seeking (fast & accurate)
+                "-i", input_path,
+                "-t", str(duration),  # Duration as input option
+                "-filter_complex", filter_complex,
+                "-map", "[v]", "-map", "[a]",
+                "-c:v", "libx264", "-preset", "slow", "-crf", "18", # High Quality
+                "-c:a", "aac", "-b:a", "192k",
+                output_path
+            ]
+            
+            logger.info(f"Extracting Broadcast Clip: start={start}s, duration={duration}s")
+            result = subprocess.run(cmd, check=True, capture_output=True, text=True)
+            return True
+            
+        except subprocess.CalledProcessError as e:
+            logger.error(f"FFmpeg broadcast extract failed: {e.stderr}")
+            return False
+        except Exception as e:
+            logger.error(f"Error extracting broadcast clip: {e}")
+            return False
+
     def resize_video(
         self, input_path: str, output_path: str, width: int = 1080, height: int = 1920
     ) -> bool:
@@ -503,3 +654,162 @@ class FFmpegHandler:
         except Exception as e:
             logger.error(f"Error rendering final video: {e}")
             return False
+
+    def burn_subtitles(self, input_path: str, output_path: str, subtitle_path: str) -> bool:
+        """
+        Burn hard subtitles into the video.
+        Uses the ASS file generated by CaptionService.
+        """
+        try:
+            # We must escape the subtitle path for FFmpeg filter
+            # Windows paths like C:\path\to\file need to be escaped carefully
+            safe_sub_path = str(Path(subtitle_path).absolute()).replace("\\", "/").replace(":", "\\:")
+            
+            cmd = [
+                self.ffmpeg_cmd, "-y", "-i", input_path,
+                "-vf", f"subtitles='{safe_sub_path}'",
+                "-c:v", "libx264", "-preset", "fast", "-crf", "23",
+                "-c:a", "copy",
+                output_path
+            ]
+            
+            logger.info(f"Burning subtitles: {' '.join(cmd)}")
+            subprocess.run(cmd, check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+            return True
+        except Exception as e:
+            logger.error(f"Error burning subtitles: {e}")
+            return False
+
+    def concatenate_with_per_clip_transitions(
+        self,
+        clips: List[Dict],
+        output_path: str,
+        include_audio: bool = False,
+    ) -> bool:
+        """
+        Concatenate clips with per-clip transition specifications.
+        
+        Each clip dict should have:
+        - path: str - path to the video file
+        - transition_in: Optional[str] - transition type to use BEFORE this clip
+        - transition_in_duration: Optional[float] - duration of in-transition
+        
+        First clip's transition_in is ignored (nothing to transition from).
+        """
+        try:
+            n = len(clips)
+            if n == 0:
+                logger.error("No clips provided for concatenation")
+                return False
+            if n == 1:
+                shutil.copy(clips[0]["path"], output_path)
+                return True
+
+            # Probe durations
+            video_paths = [c["path"] for c in clips]
+            durations = [self.get_video_info(p).get("duration", 0.0) for p in video_paths]
+            
+            if any(d <= 0 for d in durations):
+                logger.error("One or more clips have non-positive duration")
+                return False
+
+            cmd = [self.ffmpeg_cmd]
+            for p in video_paths:
+                cmd += ["-i", p]
+
+            # Build filter graph
+            v_filters = []
+            for i in range(n):
+                # Normalize FPS to avoid xfade timebase errors when clips differ
+                v_filters.append(f"[{i}:v]format=yuva420p,setsar=1,fps=30[v{i}];")
+
+            # Chain xfade filters with per-clip transitions
+            cumulative = durations[0]
+            for j in range(1, n):
+                clip = clips[j]
+                trans_type = clip.get("transition_in", "fade") or "fade"
+                trans_dur = clip.get("transition_in_duration", 0.5) or 0.5
+                
+                # Validate transition type
+                if trans_type not in [t.value for t in TransitionType]:
+                    logger.warning(f"Unknown transition '{trans_type}', falling back to 'fade'")
+                    trans_type = "fade"
+                
+                # Clamp duration to avoid exceeding clip length
+                min_dur = min(durations[j-1], durations[j])
+                if trans_dur >= min_dur:
+                    trans_dur = max(0.1, min_dur / 2.0)
+
+                offset = max(0, cumulative - trans_dur)
+                
+                if j == 1:
+                    in_label = f"[v0][v1]"
+                else:
+                    in_label = f"[x{j-1}][v{j}]"
+
+                out_label = f"[x{j}]"
+                v_filters.append(
+                    f"{in_label}xfade=transition={trans_type}:duration={trans_dur}:offset={offset}{out_label};"
+                )
+                cumulative += durations[j] - trans_dur
+
+            final_label = f"[x{n-1}]"
+            v_filters.append(f"{final_label}format=yuv420p[vout];")
+
+            # Audio handling (optional, usually we mix later)
+            a_filters = []
+            if include_audio:
+                for i in range(n):
+                    a_filters.append(f"[{i}:a]aresample=44100,asetpts=PTS-STARTPTS[a{i}];")
+                for j in range(1, n):
+                    clip = clips[j]
+                    trans_dur = clip.get("transition_in_duration", 0.5) or 0.5
+                    if j == 1:
+                        in_a = f"[a0][a1]"
+                    else:
+                        in_a = f"[a{j-1}out][a{j}]"
+                    out_a = f"[a{j}out]"
+                    a_filters.append(f"{in_a}acrossfade=d={trans_dur}{out_a};")
+                a_filters.append(f"[a{n-1}out]anull[aout]")
+
+            # Combine filter_complex
+            if include_audio:
+                filter_complex = "".join(v_filters) + ";" + "".join(a_filters)
+            else:
+                filter_complex = "".join(v_filters)
+            filter_complex = filter_complex.replace(";;", ";").strip(";")
+
+            maps = ["-map", "[vout]"]
+            codec_args = ["-c:v", "libx264", "-preset", "medium", "-crf", "23"]
+
+            if include_audio:
+                maps += ["-map", "[aout]", "-c:a", "aac", "-b:a", "192k"]
+            else:
+                codec_args += ["-an"]
+
+            cmd += ["-filter_complex", filter_complex, *maps, *codec_args, "-y", output_path]
+
+            logger.debug(f"Per-clip transition filter: {filter_complex}")
+            subprocess.run(cmd, capture_output=True, text=True, check=True)
+            logger.info(f"Clips concatenated with per-clip transitions to {output_path}")
+            return True
+
+        except subprocess.CalledProcessError as cpe:
+            logger.error(f"FFmpeg per-clip transition failed: {cpe.stderr}")
+            return False
+        except Exception as e:
+            logger.exception(f"Error in per-clip transition concat: {e}")
+            return False
+
+    @staticmethod
+    def get_transition_catalog() -> Dict:
+        """Return available transitions with metadata for UI/AI selection."""
+        return TRANSITION_CATALOG
+    
+    @staticmethod
+    def get_transitions_for_energy(energy_level: str) -> List[str]:
+        """Get transitions suitable for a given energy level (low/medium/high)."""
+        return [
+            name for name, meta in TRANSITION_CATALOG.items()
+            if meta.get("energy") == energy_level
+        ]
