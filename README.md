@@ -1,26 +1,37 @@
 # 🎬 AI Video Editor
 
-A powerful, automated video editing pipeline that turns raw footage and music into professional-grade short-form content (Reels/TikToks). Powered by **Gemini 1.5 Pro** for intelligent scene selection and **Librosa** for beat-synced cutting.
+**Magic Box SaaS**: One-click YouTube → Viral Reels pipeline with AI captions and smart reframing. A powerful, automated pipeline that turns raw podcasts or footage into professional-grade short-form content (Reels/TikToks/Shorts).
 
 ## ✨ Features
 
-- **🤖 AI Director (Gemini 1.5 Pro):** "Watches" your raw video, understands the content, and selects the best highlights based on your style prompt (e.g., "Cinematic", "Fast-paced").
-- **🎵 Beat Sync Technology:** Automatically detects musical beats and tempo to cut videos exactly on rhythm.
-- **⚡ Automated Pipeline:**
-  - **Smart Trimming:** Cuts video segments to match music energy.
-  - **Auto-Resize:** Converts landscape/4K footage into 9:16 vertical format for mobile.
-  - **Transitions:** Applies professional cross-fades between clips.
-  - **Audio Mixing:** Mixes background music with proper fading and synchronization.
-- **🚀 Scalable Architecture:** Built with FastAPI, Celery, and Redis to handle heavy video processing tasks asynchronously.
+- **🎯 Viral Highlight Detection:** Powered by **Gemini 1.5 Flash** to analyze and find the most engaging moments in long-form podcasts or videos.
+- **🗣️ Smart AI Captions:** Uses **OpenAI Whisper** for highly accurate, word-level dynamic captions.
+- **🧍 Smart Reframing & Tracking:** Automatically converts landscape video to 9:16 vertical format using **YOLOv8 Nano** to track and center the active speaker (Smart Cameraman).
+- **📈 AI Upscaling:** Enhances low-resolution clips to crisp quality using **Real-ESRGAN**.
+- **🎵 Beat Sync & Audio Mixing:** Leverages **Librosa** to detect tempo and beat-sync background music with proper audio ducking.
+- **⚡ Fully Automated Pipeline:** Handles downloading (via `yt-dlp`), clipping, reframing, captioning, and rendering entirely asynchronously.
+- **🚀 Scalable Architecture:** Built with FastAPI, Celery, and Redis to handle heavy video processing tasks concurrently.
 
 ## 🛠️ Tech Stack
 
-- **Backend:** Python 3.11, FastAPI, Celery, Redis
-- **AI/ML:** Google Gemini 1.5 Pro (Video Understanding), Librosa (Audio Analysis)
-- **Video Processing:** FFmpeg (via Python subprocess)
-- **Frontend:** React, TypeScript, TailwindCSS, Vite
-- **Database:** PostgreSQL (Metadata), Redis (Task Queue)
-- **Infrastructure:** Podman/Docker Compose
+### Backend
+- **Core:** Python 3.11+, UV, FastAPI, Celery, Redis, Uvicorn
+- **Database:** PostgreSQL (Metadata), SQLAlchemy (ORM)
+
+### AI/ML
+- **Viral Detection:** Gemini 1.5 Flash
+- **Transcription:** OpenAI Whisper
+- **Object Detection:** YOLOv8 Nano
+- **Upscaling:** Real-ESRGAN
+- **Audio Analysis:** Librosa
+- **Computer Vision:** OpenCV
+- **Media Processing:** FFmpeg (via Python subprocess)
+
+### Frontend
+- **Core:** Node.js, Vite, React, TypeScript
+- **Styling:** TailwindCSS, Lucide React
+- **State/Data:** TanStack Query, Axios
+- **Infrastructure:** Podman/Docker Compose, yt-dlp
 
 ## 🚀 Quick Start
 
@@ -70,12 +81,11 @@ npm run dev
 ## 📝 Usage
 
 1. Open `http://localhost:5173` in your browser.
-2. Upload your raw **Video Files** (mp4, mov).
-3. Upload a **Music Track** (mp3, wav).
-4. Select a **Style** (e.g., Cinematic, VLOG, Intense).
-5. Click **Generate**.
-6. The **AI Director** will analyze your footage, finding the best moments that fit the music.
-7. Download your fully edited video!
+2. Enter a **YouTube URL** (Podcast/Video) or upload your raw video files.
+3. Configure your processing options (e.g., Enable Smart Reframing, AI Captions).
+4. Click **Generate Highlights**.
+5. The **AI Director** will download, analyze, and segment the video into viral clips.
+6. Review and download your ready-to-publish vertical videos with baked-in captions!
 
 > **⚠️ Note:** This app does **not** keep upload history or user accounts. All uploaded files are deleted after processing, and your output video is deleted from the server after 1 hour. Please download your video as soon as it is ready.
 
